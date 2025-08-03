@@ -329,8 +329,17 @@ class ChatSession:
         """
         import json
 
+        # Extract JSON content by removing everything before first { and after last }
+        first_brace = llm_response.find('{')
+        last_brace = llm_response.rfind('}')
+        
+        if first_brace != -1 and last_brace != -1 and first_brace <= last_brace:
+            json_content = llm_response[first_brace:last_brace + 1]
+        else:
+            json_content = llm_response
+
         try:
-            tool_call = json.loads(llm_response)
+            tool_call = json.loads(json_content)
             if "tool" in tool_call and "arguments" in tool_call:
                 logging.info(f"Executing tool: {tool_call['tool']}")
                 logging.info(f"With arguments: {tool_call['arguments']}")
