@@ -24,6 +24,7 @@ class Configuration:
         """Initialize configuration with environment variables."""
         self.load_env()
         self.api_key = os.getenv("LLM_API_KEY")
+        self.url_base = os.getenv("LLM_URL_BASE")
 
     @staticmethod
     def load_env() -> None:
@@ -60,6 +61,20 @@ class Configuration:
         if not self.api_key:
             raise ValueError("LLM_API_KEY not found in environment variables")
         return self.api_key
+
+    @property
+    def llm_url_base(self) -> str:
+        """Get the LLM base URL.
+
+        Returns:
+            The base URL as a string.
+
+        Raises:
+            ValueError: If the base URL is not found in environment variables.
+        """
+        if not self.url_base:
+            raise ValueError("LLM_URL_BASE not found in environment variables")
+        return self.url_base
 
 
 class Server:
@@ -234,8 +249,9 @@ Arguments:
 class LLMClient:
     """Manages communication with the LLM provider."""
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, url_base: str) -> None:
         self.api_key: str = api_key
+        self.url_base: str = url_base
 
     def get_response(self, messages: list[dict[str, str]]) -> str:
         """Get a response from the LLM.
@@ -249,7 +265,7 @@ class LLMClient:
         Raises:
             httpx.RequestError: If the request to the LLM fails.
         """
-        url = "https://api.groq.com/openai/v1/chat/completions"
+        url = f"{self.url_base}/chat/completions"
 
         headers = {
             "Content-Type": "application/json",
@@ -430,7 +446,7 @@ async def main() -> None:
         Server(name, srv_config)
         for name, srv_config in server_config["mcpServers"].items()
     ]
-    llm_client = LLMClient(config.llm_api_key)
+    llm_client = LLMClient(config.llm_api_key, config.llm_url_base)
     chat_session = ChatSession(servers, llm_client)
     await chat_session.start()
 
