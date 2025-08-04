@@ -339,6 +339,7 @@ class ChatSession:
             json_content = llm_response
 
         try:
+            logging.debug(f'Testing for valid json: {json_content}')
             tool_call = json.loads(json_content)
             if "tool" in tool_call and "arguments" in tool_call:
                 logging.info(f"Executing tool: {tool_call['tool']}")
