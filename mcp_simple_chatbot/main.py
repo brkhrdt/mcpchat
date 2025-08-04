@@ -89,6 +89,13 @@ class Server:
         self._cleanup_lock: asyncio.Lock = asyncio.Lock()
         self.exit_stack: AsyncExitStack = AsyncExitStack()
 
+    def __str__(self) -> str:
+        return f'Server({self.name})'
+    def __repr__(self) -> str:
+        return str(self)
+
+           
+
     async def initialize(self) -> None:
         """Initialize the server connection."""
         command = (
@@ -216,6 +223,12 @@ class Tool:
         self.description: str = description
         self.input_schema: dict[str, Any] = input_schema
 
+    def __str__(self) -> str:
+        return f'Tool({self.name})'
+
+    def __repr__(self) -> str:
+        return str(self)
+
     def format_for_llm(self) -> str:
         """Format tool information for LLM.
 
@@ -339,18 +352,22 @@ class ChatSession:
             json_content = llm_response
 
         try:
-            logging.debug(f'Testing for valid json: {json_content}')
+            logging.debug(f'Testing for valid json:\n{json_content}')
             tool_call = json.loads(json_content)
-            if "tool" in tool_call and "arguments" in tool_call:
-                logging.info(f"Executing tool: {tool_call['tool']}")
-                logging.info(f"With arguments: {tool_call['arguments']}")
+            if "tool" in tool_call:
+                tool = tool_call['tool']
+                arguments = tool_call.get('arguments', {})
+                logging.info(f"Executing tool: {tool}")
+                logging.info(f"With arguments: {arguments}")
 
+                logging.debug(f'Available servers: {self.servers}')
                 for server in self.servers:
-                    tools = await server.list_tools()
-                    if any(tool.name == tool_call["tool"] for tool in tools):
+                    available_tools = await server.list_tools()
+                    logging.debug(f'Available tools: {available_tools}')
+                    if tool in [t.name for t in available_tools]:
                         try:
                             result = await server.execute_tool(
-                                tool_call["tool"], tool_call["arguments"]
+                                tool, arguments
                             )
 
                             if isinstance(result, dict) and "progress" in result:
@@ -367,7 +384,7 @@ class ChatSession:
                             logging.error(error_msg)
                             return error_msg
 
-                return f"No server found with tool: {tool_call['tool']}"
+                return f"No server found with tool: {tool}"
             return llm_response
         except json.JSONDecodeError:
             return llm_response
@@ -422,6 +439,7 @@ class ChatSession:
                         break
 
                     messages.append({"role": "user", "content": user_input})
+                    logging.debug(json.dumps(messages, indent=2))
 
                     llm_response = self.llm_client.get_response(messages)
                     logging.info("\nAssistant: %s", llm_response)
