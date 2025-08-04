@@ -59,7 +59,8 @@ class Configuration:
             ValueError: If the API key is not found in environment variables.
         """
         if not self.api_key:
-            raise ValueError("LLM_API_KEY not found in environment variables")
+            return ''
+            # raise ValueError("LLM_API_KEY not found in environment variables")
         return self.api_key
 
     @property
@@ -138,7 +139,7 @@ class Server:
         for item in tools_response:
             if isinstance(item, tuple) and item[0] == "tools":
                 tools.extend(
-                    Tool(tool.name, tool.description, tool.inputSchema, tool.title)
+                    Tool(tool.name, tool.description, tool.inputSchema)
                     for tool in item[1]
                 )
 
@@ -265,20 +266,19 @@ class LLMClient:
         Raises:
             httpx.RequestError: If the request to the LLM fails.
         """
-        url = f"{self.url_base}/chat/completions"
+        url = f"{self.url_base}/api/chat"
 
         headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
         }
         payload = {
             "messages": messages,
-            "model": "meta-llama/llama-4-scout-17b-16e-instruct",
-            "temperature": 0.7,
-            "max_tokens": 4096,
-            "top_p": 1,
+            "model": "gemma3:27b",
+            # "temperature": 0.7,
+            # "max_tokens": 4096,
+            # "top_p": 1,
             "stream": False,
-            "stop": None,
+            # "stop": None,
         }
 
         try:
@@ -286,7 +286,7 @@ class LLMClient:
                 response = client.post(url, headers=headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
-                return data["choices"][0]["message"]["content"]
+                return data["message"]["content"]
 
         except httpx.RequestError as e:
             error_message = f"Error getting LLM response: {str(e)}"
