@@ -5,6 +5,14 @@ import json
 import logging
 from typing import Any
 
+from ..utils.console import (
+    print_assistant_message,
+    print_system_message,
+    print_error_message,
+    print_tool_execution,
+    get_user_input
+)
+
 logger = logging.getLogger("mcp_simple_chatbot.chat_session")
 
 
@@ -66,9 +74,11 @@ class ChatSession:
                                     f"Progress: {progress}/{total} ({percentage:.1f}%)"
                                 )
 
+                            print_tool_execution(tool, str(result))
                             return f"Tool execution result: {result}"
                         except Exception as e:
                             error_msg = f"Error executing tool: {str(e)}"
+                            print_error_message(error_msg)
                             logging.error(error_msg)
                             return error_msg
 
@@ -121,16 +131,16 @@ class ChatSession:
 
             while True:
                 try:
-                    user_input = input("\nYou: ").strip().lower()
+                    user_input = get_user_input().strip().lower()
                     if user_input in ["quit", "exit"]:
-                        logging.info("\nExiting...")
+                        print_system_message("👋 Goodbye!")
                         break
 
                     messages.append({"role": "user", "content": user_input})
                     logging.debug(json.dumps(messages, indent=2))
 
                     llm_response = self.llm_client.get_response(messages)
-                    print(f"\nAssistant: {llm_response}")
+                    print_assistant_message(llm_response)
 
                     result = await self.process_llm_response(llm_response)
 
@@ -140,7 +150,7 @@ class ChatSession:
 
                         final_response = self.llm_client.get_response(messages)
                         logging.info("\nFinal response: %s", final_response)
-                        print(f"\nAssistant: {final_response}")
+                        print_assistant_message(final_response)
                         messages.append(
                             {"role": "assistant", "content": final_response}
                         )
@@ -148,7 +158,7 @@ class ChatSession:
                         messages.append({"role": "assistant", "content": llm_response})
 
                 except KeyboardInterrupt:
-                    logging.info("\nExiting...")
+                    print_system_message("👋 Goodbye!")
                     break
 
         finally:

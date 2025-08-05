@@ -8,6 +8,7 @@ from mcp_simple_chatbot.core.server import Server
 from mcp_simple_chatbot.clients.llm_client import LLMClient
 from mcp_simple_chatbot.core.chat_session import ChatSession
 from mcp_simple_chatbot.utils.logging_config import setup_logging
+from mcp_simple_chatbot.utils.console import print_system_message, print_error_message
 
 
 # Set up logging
@@ -18,6 +19,8 @@ logger = logging.getLogger("mcp_simple_chatbot.main")
 
 async def main() -> None:
     """Initialize and run the chat session."""
+    print_system_message("🤖 Starting MCP Simple Chatbot...")
+    
     config = Configuration()
     server_config = config.load_config("servers_config.json")
     servers = [
