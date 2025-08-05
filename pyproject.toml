@@ -45,4 +45,11 @@ line-length = 88
 target-version = "py310"
 
 [tool.uv]
-dev-dependencies = ["pyright>=1.1.379", "pytest>=8.3.3", "ruff>=0.6.9"]
+dev-dependencies = ["pyright>=1.1.379", "pytest>=8.3.3", "pytest-asyncio>=0.21.0", "ruff>=0.6.9"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
