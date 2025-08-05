@@ -1,5 +1,23 @@
 # MCP Simple Chatbot
 
+```bash
+python3 -m llama_cpp.server     --model models/gemma-3-27b-it-Q4_1.gguf     --n_gpu_layers -1 --cformat gemma
+
+
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is the capital of Canada?"}
+    ],
+    "max_tokens": 100,
+    "temperature": 0.7
+  }'
+
+```
+
+
 This example demonstrates how to integrate the Model Context Protocol (MCP) into a simple CLI chatbot. The implementation showcases MCP's flexibility by supporting multiple tools through MCP servers and is compatible with any LLM provider that follows OpenAI API standards.
 
 ## Requirements
