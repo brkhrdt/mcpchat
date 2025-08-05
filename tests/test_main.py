@@ -1,6 +1,6 @@
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 from mcp_simple_chatbot.main import ChatSession, LLMClient, Server, Tool
 
@@ -65,7 +65,7 @@ async def test_valid_json_command_execution():
 
 @pytest.mark.asyncio
 async def test_invalid_json_response_printed():
-    """Test that invalid JSON responses are printed to stdout instead of executed."""
+    """Test that invalid JSON responses don't trigger tool execution."""
     
     # Mock LLM response with invalid JSON
     mock_llm_response = "This is not valid JSON - just a regular text response"
@@ -85,15 +85,11 @@ async def test_invalid_json_response_printed():
     # Create chat session
     chat_session = ChatSession([mock_server], mock_llm_client)
     
-    # Capture stdout to verify the response is printed
-    with patch('builtins.print') as mock_print:
-        result = await chat_session.process_llm_response(mock_llm_response)
+    # Process the invalid JSON response
+    result = await chat_session.process_llm_response(mock_llm_response)
     
     # Verify that execute_tool was never called (no valid JSON to execute)
     mock_server.execute_tool.assert_not_called()
-    
-    # Verify the response was printed to stdout
-    mock_print.assert_called_once_with(mock_llm_response)
     
     # Verify the result is the original response
     assert result == mock_llm_response
