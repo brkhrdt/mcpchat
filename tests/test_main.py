@@ -2,7 +2,7 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock
 import pytest
-from mcp_simple_chatbot.main import ChatSession, LLMClient, Server, Tool
+from mcp_simple_chatbot import ChatSession, LLMClient, Server, Tool
 
 
 @pytest.mark.asyncio
