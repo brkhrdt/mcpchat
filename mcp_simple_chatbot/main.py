@@ -12,10 +12,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 # Configure logging
-logging.basicConfig(
-    level=logging.DEBUG, 
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.DEBUG, format="CHAT - %(levelname)s - %(message)s")
 
 # Set up logger for this service
 logger = logging.getLogger("mcp_simple_chatbot")
