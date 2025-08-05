@@ -294,11 +294,10 @@ class LLMClient:
         }
 
         try:
-            with httpx.Client() as client:
+            with httpx.Client(timeout=300) as client:
                 response = client.post(url, headers=headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
-                print(data)
                 # return data["message"]["content"]
                 return data["choices"][0]["message"]["content"]
 
@@ -428,7 +427,7 @@ class ChatSession:
                 "Please use only the tools that are explicitly defined above."
             )
 
-            messages = [{"role": "system", "content": system_message}]
+            messages = [{"role": "user", "content": system_message}]
 
             while True:
                 try:
