@@ -12,7 +12,10 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, format="CHAT - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.ERROR, format="%(asctime)s][CHAT ]%(levelname)s- %(message)s"
+)
+
 
 # Set up logger for this service
 logger = logging.getLogger("mcp_simple_chatbot")
@@ -431,7 +434,7 @@ class ChatSession:
 
             while True:
                 try:
-                    user_input = input("You: ").strip().lower()
+                    user_input = input("\nYou: ").strip().lower()
                     if user_input in ["quit", "exit"]:
                         logging.info("\nExiting...")
                         break
@@ -440,7 +443,7 @@ class ChatSession:
                     logging.debug(json.dumps(messages, indent=2))
 
                     llm_response = self.llm_client.get_response(messages)
-                    logging.info("\nAssistant: %s", llm_response)
+                    print(f"\nAssistant: {llm_response}")
 
                     result = await self.process_llm_response(llm_response)
 
@@ -450,6 +453,7 @@ class ChatSession:
 
                         final_response = self.llm_client.get_response(messages)
                         logging.info("\nFinal response: %s", final_response)
+                        print(f"\nAssistant: {final_response}")
                         messages.append(
                             {"role": "assistant", "content": final_response}
                         )
