@@ -61,3 +61,42 @@ async def test_valid_json_command_execution():
 
     # Clean up
     await chat_session.cleanup_servers()
+
+
+@pytest.mark.asyncio
+async def test_invalid_json_response_printed():
+    """Test that invalid JSON responses are printed to stdout instead of executed."""
+    
+    # Mock LLM response with invalid JSON
+    mock_llm_response = "This is not valid JSON - just a regular text response"
+    
+    # Create mock LLM client
+    mock_llm_client = MagicMock(spec=LLMClient)
+    mock_llm_client.get_response.return_value = mock_llm_response
+    
+    # Create mock server
+    mock_server = MagicMock(spec=Server)
+    mock_server.name = "test_server"
+    mock_server.initialize = AsyncMock()
+    mock_server.list_tools = AsyncMock(return_value=[])
+    mock_server.execute_tool = AsyncMock()
+    mock_server.cleanup = AsyncMock()
+    
+    # Create chat session
+    chat_session = ChatSession([mock_server], mock_llm_client)
+    
+    # Capture stdout to verify the response is printed
+    with patch('builtins.print') as mock_print:
+        result = await chat_session.process_llm_response(mock_llm_response)
+    
+    # Verify that execute_tool was never called (no valid JSON to execute)
+    mock_server.execute_tool.assert_not_called()
+    
+    # Verify the response was printed to stdout
+    mock_print.assert_called_once_with(mock_llm_response)
+    
+    # Verify the result is the original response
+    assert result == mock_llm_response
+    
+    # Clean up
+    await chat_session.cleanup_servers()
