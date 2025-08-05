@@ -13,7 +13,7 @@ from mcp.client.stdio import stdio_client
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 
@@ -59,7 +59,7 @@ class Configuration:
             ValueError: If the API key is not found in environment variables.
         """
         if not self.api_key:
-            return ''
+            return ""
             # raise ValueError("LLM_API_KEY not found in environment variables")
         return self.api_key
 
@@ -90,11 +90,10 @@ class Server:
         self.exit_stack: AsyncExitStack = AsyncExitStack()
 
     def __str__(self) -> str:
-        return f'Server({self.name})'
+        return f"Server({self.name})"
+
     def __repr__(self) -> str:
         return str(self)
-
-           
 
     async def initialize(self) -> None:
         """Initialize the server connection."""
@@ -224,7 +223,7 @@ class Tool:
         self.input_schema: dict[str, Any] = input_schema
 
     def __str__(self) -> str:
-        return f'Tool({self.name})'
+        return f"Tool({self.name})"
 
     def __repr__(self) -> str:
         return str(self)
@@ -279,14 +278,13 @@ class LLMClient:
         Raises:
             httpx.RequestError: If the request to the LLM fails.
         """
-        url = f"{self.url_base}/api/chat"
+        url = f"{self.url_base}/v1/chat/completions"
 
-        headers = {
-            "Content-Type": "application/json"
-        }
+        headers = {"Content-Type": "application/json"}
         payload = {
             "messages": messages,
-            "model": "gemma3:27b",
+            # "model": "gemma3:27b",
+            # "model": "ok",
             # "temperature": 0.7,
             # "max_tokens": 4096,
             # "top_p": 1,
@@ -299,7 +297,9 @@ class LLMClient:
                 response = client.post(url, headers=headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
-                return data["message"]["content"]
+                print(data)
+                # return data["message"]["content"]
+                return data["choices"][0]["message"]["content"]
 
         except httpx.RequestError as e:
             error_message = f"Error getting LLM response: {str(e)}"
@@ -343,32 +343,30 @@ class ChatSession:
         import json
 
         # Extract JSON content by removing everything before first { and after last }
-        first_brace = llm_response.find('{')
-        last_brace = llm_response.rfind('}')
-        
+        first_brace = llm_response.find("{")
+        last_brace = llm_response.rfind("}")
+
         if first_brace != -1 and last_brace != -1 and first_brace <= last_brace:
-            json_content = llm_response[first_brace:last_brace + 1]
+            json_content = llm_response[first_brace : last_brace + 1]
         else:
             json_content = llm_response
 
         try:
-            logging.debug(f'Testing for valid json:\n{json_content}')
+            logging.debug(f"Testing for valid json:\n{json_content}")
             tool_call = json.loads(json_content)
             if "tool" in tool_call:
-                tool = tool_call['tool']
-                arguments = tool_call.get('arguments', {})
+                tool = tool_call["tool"]
+                arguments = tool_call.get("arguments", {})
                 logging.info(f"Executing tool: {tool}")
                 logging.info(f"With arguments: {arguments}")
 
-                logging.debug(f'Available servers: {self.servers}')
+                logging.debug(f"Available servers: {self.servers}")
                 for server in self.servers:
                     available_tools = await server.list_tools()
-                    logging.debug(f'Available tools: {available_tools}')
+                    logging.debug(f"Available tools: {available_tools}")
                     if tool in [t.name for t in available_tools]:
                         try:
-                            result = await server.execute_tool(
-                                tool, arguments
-                            )
+                            result = await server.execute_tool(tool, arguments)
 
                             if isinstance(result, dict) and "progress" in result:
                                 progress = result["progress"]
@@ -474,6 +472,7 @@ async def main() -> None:
         Server(name, srv_config)
         for name, srv_config in server_config["mcpServers"].items()
     ]
+    logging.info(str(config.llm_url_base))
     llm_client = LLMClient(config.llm_api_key, config.llm_url_base)
     chat_session = ChatSession(servers, llm_client)
     await chat_session.start()
