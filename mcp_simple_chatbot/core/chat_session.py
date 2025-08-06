@@ -10,7 +10,7 @@ from ..utils.console import (
     print_system_message,
     print_error_message,
     print_tool_execution,
-    get_user_input
+    get_user_input,
 )
 
 logger = logging.getLogger("mcp_simple_chatbot.chat_session")
@@ -74,7 +74,7 @@ class ChatSession:
                                     f"Progress: {progress}/{total} ({percentage:.1f}%)"
                                 )
 
-                            print_tool_execution(tool, str(result))
+                            print_tool_execution(tool, result)
                             return f"Tool execution result: {result}"
                         except Exception as e:
                             error_msg = f"Error executing tool: {str(e)}"
@@ -146,7 +146,7 @@ class ChatSession:
 
                     if result != llm_response:
                         messages.append({"role": "assistant", "content": llm_response})
-                        messages.append({"role": "system", "content": result})
+                        messages.append({"role": "user", "content": result})
 
                         final_response = self.llm_client.get_response(messages)
                         logging.info("\nFinal response: %s", final_response)
