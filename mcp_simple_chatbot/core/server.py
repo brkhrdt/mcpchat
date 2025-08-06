@@ -9,6 +9,7 @@ from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.types import CallToolResult
 
 from .tool import Tool
 
@@ -95,7 +96,7 @@ class Server:
         arguments: dict[str, Any],
         retries: int = 2,
         delay: float = 1.0,
-    ) -> Any:
+    ) -> CallToolResult:
         """Execute a tool with retry mechanism.
 
         Args:
@@ -114,7 +115,12 @@ class Server:
         if not self.session:
             raise RuntimeError(f"Server {self.name} not initialized")
 
+        if retries < 1:
+            raise ValueError("retries must be at least 1")
+
         attempt = 0
+        last_exception = None
+
         while attempt < retries:
             try:
                 logging.info(f"Executing {tool_name}...")
@@ -123,6 +129,7 @@ class Server:
                 return result
 
             except Exception as e:
+                last_exception = e
                 attempt += 1
                 logging.warning(
                     f"Error executing tool: {e}. Attempt {attempt} of {retries}."
@@ -130,9 +137,10 @@ class Server:
                 if attempt < retries:
                     logging.info(f"Retrying in {delay} seconds...")
                     await asyncio.sleep(delay)
-                else:
-                    logging.error("Max retries reached. Failing.")
-                    raise
+
+        # This line is reached only if all retries failed
+        logging.error("Max retries reached. Failing.")
+        raise last_exception or Exception("Tool execution failed")
 
     async def cleanup(self) -> None:
         """Clean up server resources."""

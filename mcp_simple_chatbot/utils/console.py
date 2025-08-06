@@ -1,5 +1,6 @@
 """Rich console utilities for beautiful chat interface."""
 
+from mcp.types import CallToolResult, TextContent
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -47,10 +48,16 @@ def print_error_message(message: str) -> None:
     console.print(f"[error]Error: {message}[/error]")
 
 
-def print_tool_execution(tool_name: str, result: dict) -> None:
+def print_tool_execution(tool_name: str, result: CallToolResult) -> None:
     """Print tool execution result with rich formatting."""
+    content = result.content[0]
+    if isinstance(content, TextContent):
+        text = content.text
+    else:
+        text = str(content)
+
     panel = Panel(
-        Markdown(f"**Tool:** {tool_name}\n\n{result}"),
+        Markdown(f"```> {text}"),
         title="[tool]Tool Execution[/tool]",
         border_style="magenta",
     )

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from typing import Any
+from .server import Server
 
 from ..utils.console import (
     print_assistant_message,
@@ -19,8 +20,8 @@ logger = logging.getLogger("mcp_simple_chatbot.chat_session")
 class ChatSession:
     """Orchestrates the interaction between user, LLM, and tools."""
 
-    def __init__(self, servers: list[Any], llm_client) -> None:
-        self.servers: list[Any] = servers
+    def __init__(self, servers: list[Server], llm_client) -> None:
+        self.servers: list[Server] = servers
         self.llm_client = llm_client
 
     async def cleanup_servers(self) -> None:
