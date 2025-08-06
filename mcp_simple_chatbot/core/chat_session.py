@@ -42,6 +42,7 @@ class ChatSession:
             The result of tool execution or the original response.
         """
         # Extract JSON content by removing everything before first { and after last }
+        # TODO just look for json block
         first_brace = llm_response.find("{")
         last_brace = llm_response.rfind("}")
 
@@ -132,6 +133,7 @@ class ChatSession:
 
             while True:
                 try:
+                    # TODO user input async, command output async
                     user_input = get_user_input().strip().lower()
                     if user_input in ["quit", "exit"]:
                         print_system_message("👋 Goodbye!")
