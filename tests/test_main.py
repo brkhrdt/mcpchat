@@ -1,6 +1,7 @@
 import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock
+from mcp.types import CallToolResult, TextContent
 import pytest
 from mcp_simple_chatbot import ChatSession, LLMClient, Server, Tool
 
@@ -15,7 +16,7 @@ async def test_valid_json_command_execution():
     )
 
     # Mock tool execution result
-    mock_tool_result = {"status": "success", "data": "test result"}
+    mock_tool_result = CallToolResult(content=[TextContent(text="hi")])  # FIXME
 
     # Create mock LLM client
     mock_llm_client = MagicMock(spec=LLMClient)
