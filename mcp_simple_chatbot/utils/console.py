@@ -57,7 +57,7 @@ def print_tool_execution(tool_name: str, result: CallToolResult) -> None:
         text = str(content)
 
     panel = Panel(
-        Markdown(f"```> {text}"),
+        Markdown(f"```\n{text}\n```"),
         title="[tool]Tool Execution[/tool]",
         border_style="magenta",
     )
