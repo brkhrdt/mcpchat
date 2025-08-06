@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
+from rich.syntax import Syntax
 from rich.theme import Theme
 
 # Custom theme for the chat interface
@@ -58,11 +59,22 @@ def print_tool_execution(tool_name: str, result: CallToolResult) -> None:
 
     text = text.strip()
     text = text.replace("\r", "")
-    panel = Panel(
-        Markdown(f"```\n{text}\n```"),
-        title="[tool]Tool Execution[/tool]",
-        border_style="magenta",
-    )
+    
+    try:
+        # Try to auto-detect and highlight
+        syntax = Syntax(text, lexer="guess", theme="monokai", line_numbers=False)
+        panel = Panel(
+            syntax,
+            title="[tool]Tool Execution[/tool]",
+            border_style="magenta",
+        )
+    except:
+        # Fallback to plain text if syntax highlighting fails
+        panel = Panel(
+            text,
+            title="[tool]Tool Execution[/tool]",
+            border_style="magenta",
+        )
     console.print(panel)
 
 
