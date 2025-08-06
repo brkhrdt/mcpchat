@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+      "shell": {
+          "command": "/home/s/git/tcl-shell-mcp/.venv/bin/python",
+          "args": ["/home/s/git/tcl-shell-mcp/src/shell_mcp.py"]
+      }
+
+  }
+}
