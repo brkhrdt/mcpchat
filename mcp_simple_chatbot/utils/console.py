@@ -7,6 +7,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.syntax import Syntax
 from rich.theme import Theme
+import logging
 
 # Custom theme for the chat interface
 CHAT_THEME = Theme(
@@ -51,6 +52,7 @@ def print_error_message(message: str) -> None:
 
 def print_tool_execution(tool_name: str, result: CallToolResult) -> None:
     """Print tool execution result with rich formatting."""
+    logging.debug(result)
     content = result.content[0]
     if isinstance(content, TextContent):
         text = content.text
