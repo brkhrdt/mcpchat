@@ -5,6 +5,7 @@ import json
 import logging
 from typing import Any
 from .server import Server
+from .command_handler import CommandHandler
 
 from ..utils.console import (
     print_assistant_message,
@@ -23,6 +24,7 @@ class ChatSession:
     def __init__(self, servers: list[Server], llm_client) -> None:
         self.servers: list[Server] = servers
         self.llm_client = llm_client
+        self.command_handler = CommandHandler()
 
     async def cleanup_servers(self) -> None:
         """Clean up all servers properly."""
@@ -134,10 +136,16 @@ class ChatSession:
             while True:
                 try:
                     # TODO user input async, command output async
-                    user_input = get_user_input().strip().lower()
-                    if user_input in ["quit", "exit"]:
+                    user_input = get_user_input()
+                    if user_input.strip().lower() in ["quit", "exit"]:
                         print_system_message("👋 Goodbye!")
                         break
+
+                    # Check if input is a command
+                    if self.command_handler.is_command(user_input):
+                        command_response = await self.command_handler.execute_command(user_input)
+                        print_system_message(command_response)
+                        continue
 
                     messages.append({"role": "user", "content": user_input})
                     logging.debug(json.dumps(messages, indent=2))
