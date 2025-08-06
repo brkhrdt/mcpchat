@@ -56,6 +56,8 @@ def print_tool_execution(tool_name: str, result: CallToolResult) -> None:
     else:
         text = str(content)
 
+    text = text.strip()
+    text = text.replace("\r", "")
     panel = Panel(
         Markdown(f"```\n{text}\n```"),
         title="[tool]Tool Execution[/tool]",
