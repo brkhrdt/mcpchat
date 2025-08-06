@@ -16,7 +16,10 @@ async def test_valid_json_command_execution():
     )
 
     # Mock tool execution result
-    mock_tool_result = CallToolResult(content=[TextContent(text="hi")])  # FIXME
+    mock_tool_result = CallToolResult(
+        content=[TextContent(type="text", text="Tool executed successfully")],
+        isError=False
+    )
 
     # Create mock LLM client
     mock_llm_client = MagicMock(spec=LLMClient)
@@ -58,7 +61,7 @@ async def test_valid_json_command_execution():
 
     # Verify result contains tool execution output
     assert "Tool execution result:" in result
-    assert str(mock_tool_result) in result
+    assert "Tool executed successfully" in result
 
     # Clean up
     await chat_session.cleanup_servers()
