@@ -9,7 +9,8 @@ from mcp_simple_chatbot import ChatSession, LLMClient, Server, Tool
 
 @pytest.mark.asyncio
 async def test_valid_json_command_execution():
-    """Test that a valid JSON command is correctly parsed and executed on the MCP server."""
+    """Test that a valid JSON command is correctly parsed and executed on the MCP
+    server."""
 
     # Mock LLM response with valid JSON tool call
     mock_llm_response = json.dumps(

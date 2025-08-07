@@ -71,7 +71,7 @@ def print_tool_execution(tool_name: str, result: CallToolResult) -> None:
             title="[tool]Tool Execution[/tool]",
             border_style="magenta",
         )
-    except:
+    except Exception: # Changed from bare except
         # Fallback to plain text if syntax highlighting fails
         panel = Panel(
             text,

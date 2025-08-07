@@ -26,7 +26,9 @@ class CommandHandler:
         if command_name in self.commands:
             return await self.commands[command_name](command_parts[1:])
         else:
-            return f"Unknown command: /{command_name}. Type /help for available commands."
+            return (
+                f"Unknown command: /{command_name}. Type /help for available commands."
+            )
     
     async def _toggle_debug(self, args: list) -> str:
         """Toggle debug logging."""
