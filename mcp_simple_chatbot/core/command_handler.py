@@ -1,7 +1,7 @@
 """Command handler for chat commands."""
 
 import logging
-from typing import Dict, Callable, Any
+from typing import Callable, Dict
 
 
 class CommandHandler:

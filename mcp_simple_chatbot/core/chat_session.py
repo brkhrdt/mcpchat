@@ -1,19 +1,17 @@
 """Chat session orchestration."""
 
-import asyncio
 import json
 import logging
-from typing import Any
-from .server import Server
-from .command_handler import CommandHandler
 
 from ..utils.console import (
-    print_assistant_message,
-    print_system_message,
-    print_error_message,
-    print_tool_execution,
     get_user_input,
+    print_assistant_message,
+    print_error_message,
+    print_system_message,
+    print_tool_execution,
 )
+from .command_handler import CommandHandler
+from .server import Server
 
 logger = logging.getLogger("mcp_simple_chatbot.chat_session")
 

@@ -1,8 +1,9 @@
-import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock
-from mcp.types import CallToolResult, TextContent
+
 import pytest
+from mcp.types import CallToolResult, TextContent
+
 from mcp_simple_chatbot import ChatSession, LLMClient, Server, Tool
 
 

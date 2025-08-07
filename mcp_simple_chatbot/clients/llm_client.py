@@ -1,9 +1,8 @@
 """LLM client for communication with language models."""
 
-import httpx
 import logging
-from typing import Any
 
+import httpx
 
 logger = logging.getLogger("mcp_simple_chatbot.llm_client")
 

@@ -13,7 +13,6 @@ from mcp.types import CallToolResult
 
 from .tool import Tool
 
-
 logger = logging.getLogger("mcp_simple_chatbot.server")
 
 

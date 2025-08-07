@@ -1,5 +1,7 @@
 """Rich console utilities for beautiful chat interface."""
 
+import logging
+
 from mcp.types import CallToolResult, TextContent
 from rich.console import Console
 from rich.markdown import Markdown
@@ -7,7 +9,6 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.syntax import Syntax
 from rich.theme import Theme
-import logging
 
 # Custom theme for the chat interface
 CHAT_THEME = Theme(

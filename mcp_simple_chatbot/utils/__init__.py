@@ -2,12 +2,12 @@
 
 from .console import (
     console,
-    print_user_message,
+    get_user_input,
     print_assistant_message,
-    print_system_message,
     print_error_message,
+    print_system_message,
     print_tool_execution,
-    get_user_input
+    print_user_message,
 )
 
 __all__ = [

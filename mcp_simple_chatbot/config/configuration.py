@@ -1,7 +1,6 @@
 """Configuration management for MCP client."""
 
 import json
-import logging
 import os
 from typing import Any
 

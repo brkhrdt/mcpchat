@@ -3,13 +3,12 @@
 import asyncio
 import logging
 
-from mcp_simple_chatbot.config.configuration import Configuration
-from mcp_simple_chatbot.core.server import Server
 from mcp_simple_chatbot.clients.llm_client import LLMClient
+from mcp_simple_chatbot.config.configuration import Configuration
 from mcp_simple_chatbot.core.chat_session import ChatSession
+from mcp_simple_chatbot.core.server import Server
+from mcp_simple_chatbot.utils.console import print_system_message
 from mcp_simple_chatbot.utils.logging_config import setup_logging
-from mcp_simple_chatbot.utils.console import print_system_message, print_error_message
-
 
 # Set up logging
 setup_logging()
