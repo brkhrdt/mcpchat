@@ -141,7 +141,9 @@ class ChatSession:
 
                     # Check if input is a command
                     if self.command_handler.is_command(user_input):
-                        command_response = await self.command_handler.execute_command(user_input)
+                        command_response = (
+                            await self.command_handler.execute_command(user_input)
+                        )
                         print_system_message(command_response)
                         continue
 
@@ -172,3 +174,4 @@ class ChatSession:
 
         finally:
             await self.cleanup_servers()
+
