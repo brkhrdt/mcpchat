@@ -5,7 +5,7 @@ import logging
 import os
 import shutil
 from contextlib import AsyncExitStack
-from typing import Any
+from typing import Any, List
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -78,7 +78,7 @@ class Server:
             raise RuntimeError(f"Server {self.name} not initialized")
 
         tools_response = await self.session.list_tools()
-        tools = []
+        tools: List[Tool] = []
 
         for item in tools_response:
             if isinstance(item, tuple) and item[0] == "tools":
