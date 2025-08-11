@@ -46,7 +46,13 @@ line-length = 88
 target-version = "py310"
 
 [tool.uv]
-dev-dependencies = ["pyright>=1.1.379", "pytest>=8.3.3", "pytest-asyncio>=0.21.0", "ruff>=0.6.9"]
+dev-dependencies = [
+    "mypy>=1.17.1",
+    "pyright>=1.1.379",
+ "pytest>=8.3.3",
+ "pytest-asyncio>=0.21.0",
+ "ruff>=0.6.9",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
