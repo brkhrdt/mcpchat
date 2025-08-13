@@ -20,7 +20,7 @@ async def test_valid_json_command_execution():
     # Mock tool execution result
     mock_tool_result = CallToolResult(
         content=[TextContent(type="text", text="Tool executed successfully")],
-        isError=False
+        isError=False,
     )
 
     # Create mock LLM client

@@ -19,7 +19,7 @@ logger = logging.getLogger("mcp_simple_chatbot.main")
 async def main() -> None:
     """Initialize and run the chat session."""
     print_system_message("🤖 Starting MCP Simple Chatbot...")
-    
+
     config = Configuration()
     server_config = config.load_config("servers_config.json")
     servers = [

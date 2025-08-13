@@ -2,8 +2,8 @@
 
 import logging
 
-from rich.box import Box
 from mcp.types import CallToolResult, TextContent
+from rich.box import Box
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
