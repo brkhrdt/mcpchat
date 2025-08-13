@@ -2,6 +2,7 @@
 
 import logging
 
+from rich.box import Box
 from mcp.types import CallToolResult, TextContent
 from rich.console import Console
 from rich.markdown import Markdown
@@ -24,10 +25,25 @@ CHAT_THEME = Theme(
 
 console = Console(theme=CHAT_THEME)
 
+# fmt: off
+LEFT_BAR = Box(
+    "┃   \n"
+    "┃   \n"
+    "┃   \n"
+    "┃   \n"
+    "┃   \n"
+    "┃   \n"
+    "┃   \n"
+    "    \n"
+)
+# fmt: on
+
 
 def print_user_message(message: str) -> None:
     """Print user message with rich formatting."""
-    panel = Panel(Markdown(message), title="[user]You[/user]", border_style="cyan")
+    panel = Panel(
+        Markdown(message), box=LEFT_BAR, title="[user]You[/user]", border_style="cyan"
+    )
     console.print(panel)
 
 
@@ -35,7 +51,9 @@ def print_assistant_message(message: str) -> None:
     """Print assistant message with rich formatting."""
     panel = Panel(
         Markdown(message),
+        box=LEFT_BAR,
         title="[assistant]Assistant[/assistant]",
+        title_align="left",
         border_style="green",
     )
     console.print(panel)
@@ -62,20 +80,24 @@ def print_tool_execution(tool_name: str, result: CallToolResult) -> None:
 
     text = text.strip()
     text = text.replace("\r", "")
-    
+
     try:
         # Try to auto-detect and highlight
         syntax = Syntax(text, lexer="guess", theme="monokai", line_numbers=False)
         panel = Panel(
             syntax,
             title="[tool]Tool Execution[/tool]",
+            title_align="left",
+            box=LEFT_BAR,
             border_style="magenta",
         )
-    except Exception: # Changed from bare except
+    except Exception:  # Changed from bare except
         # Fallback to plain text if syntax highlighting fails
         panel = Panel(
             text,
             title="[tool]Tool Execution[/tool]",
+            title_align="left",
+            box=LEFT_BAR,
             border_style="magenta",
         )
     console.print(panel)
