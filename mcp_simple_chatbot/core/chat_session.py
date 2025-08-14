@@ -37,14 +37,14 @@ class LLMResponse:
     ):
         self.role = role
         self.thinking = thinking
-        self.message = message
+        self.final = message
         self.tool_call = tool_call
         self.commentary = commentary
 
     def __repr__(self):
         return (
             f"LLMResponse(role='{self.role}', thinking='{self.thinking}', "
-            f"message='{self.message}', tool_call={self.tool_call}, "
+            f"final='{self.final}', tool_call={self.tool_call}, "
             f"commentary='{self.commentary}')"
         )
 
@@ -76,7 +76,9 @@ class ChatSession:
         for i in range(0, len(content_parts), 2):
             role = content_parts[i]
             content = content_parts[i + 1]
-            parsed_response.role = role # Assuming only one role in the final parsed response
+            parsed_response.role = (
+                role  # Assuming only one role in the final parsed response
+            )
 
             # Split content by <|channel|>
             channel_parts = re.split(r"<\|channel\|>([a-z]+)", content)
@@ -85,21 +87,23 @@ class ChatSession:
 
             for j in range(0, len(channel_content_parts), 2):
                 channel = channel_content_parts[j]
-                message_content_match = re.match(r"<\|message\|>(.*)", channel_content_parts[j+1], re.DOTALL)
+                message_content_match = re.match(
+                    r"<\|message\|>(.*)", channel_content_parts[j + 1], re.DOTALL
+                )
                 if not message_content_match:
                     continue
                 message_content = message_content_match.group(1).strip()
 
                 if channel == "analysis":
                     parsed_response.thinking = message_content
-                elif channel == "message":
-                    parsed_response.message = message_content
+                elif channel == "final":
+                    parsed_response.final = message_content
                 elif channel == "commentary":
                     # Special case for tool call within commentary
                     tool_call_match = re.match(
                         r"to=function\.([^ ]+) json<\|message\|>(.*)",
-                        channel_content_parts[j+1],
-                        re.DOTALL
+                        channel_content_parts[j + 1],
+                        re.DOTALL,
                     )
                     if tool_call_match:
                         tool_name = tool_call_match.group(1)
@@ -108,8 +112,12 @@ class ChatSession:
                             args = json.loads(json_args_str)
                             parsed_response.tool_call = ToolCall(tool_name, args)
                         except json.JSONDecodeError:
-                            logging.warning(f"Could not parse tool arguments JSON: {json_args_str}")
-                            parsed_response.commentary = message_content # Fallback to general commentary
+                            logging.warning(
+                                f"Could not parse tool arguments JSON: {json_args_str}"
+                            )
+                            parsed_response.commentary = (
+                                message_content  # Fallback to general commentary
+                            )
                     else:
                         parsed_response.commentary = message_content
         return parsed_response
