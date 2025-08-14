@@ -7,7 +7,7 @@ def setup_logging() -> None:
     """Configure logging for the application."""
     # Set the root logger level to INFO or DEBUG to see more messages
     logging.basicConfig(
-        level=logging.DEBUG,  # Changed from logging.ERROR to logging.INFO
+        level=logging.ERROR,  # Changed from logging.ERROR to logging.INFO
         format="%(asctime)s][CHAT ]%(levelname)s- %(message)s",
     )
 
@@ -16,5 +16,5 @@ def setup_logging() -> None:
     for name in logging.root.manager.loggerDict:
         if name.startswith("mcp_simple_chatbot"):
             logging.getLogger(name).setLevel(
-                logging.INFO
+                logging.DEBUG
             )  # Changed from logging.ERROR to logging.INFO
