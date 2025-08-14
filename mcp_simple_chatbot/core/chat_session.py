@@ -16,6 +16,19 @@ from .server import Server
 logger = logging.getLogger("mcp_simple_chatbot.chat_session")
 
 
+class ToolCall:
+    # tool = str
+    # args = dict
+    pass
+
+
+class LLMResponse:
+    # thinking = None
+    # message = None
+    # tool = ToolCall
+    pass
+
+
 class ChatSession:
     """Orchestrates the interaction between user, LLM, and tools."""
 
@@ -31,6 +44,13 @@ class ChatSession:
                 await server.cleanup()
             except Exception as e:
                 logging.warning(f"Warning during final cleanup: {e}")
+
+    def _parse_llm_response(self, llm_response: str) -> LlmResponse:
+        # split llm_response into these possible substrings
+        # <|channel|>channelname<|message|>message content
+        # <|start|>rolename
+        # <|channel|>commentary to=function.toolname json<|message|>jsonstring
+        pass
 
     async def process_llm_response(self, llm_response: str) -> str:
         """Process the LLM response and execute tools if needed.
@@ -112,14 +132,6 @@ class ChatSession:
                 f"{tools_description}\n"
                 "Choose the appropriate tool based on the user's question. "
                 "If no tool is needed, reply directly.\n\n"
-                # "IMPORTANT: When you need to use a tool, you must ONLY respond with "
-                # "the exact JSON object format below, nothing else:\n"
-                # "{\n"
-                # '    "tool": "tool-name",\n'
-                # '    "arguments": {\n'
-                # '        "argument-name": "value"\n'
-                # "    }\n"
-                # "}\n\n"
                 "After receiving a tool's response:\n"
                 "1. Transform the raw data into a natural, conversational response\n"
                 "2. Keep responses concise but informative\n"
@@ -151,6 +163,8 @@ class ChatSession:
                     logging.debug(json.dumps(messages, indent=2))
 
                     llm_response = self.llm_client.get_response(messages)
+
+                    parsed = _parse_llm_response(llm_response)
                     print_assistant_message(llm_response)
 
                     result = await self.process_llm_response(llm_response)
