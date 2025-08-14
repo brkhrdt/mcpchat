@@ -8,7 +8,7 @@ from .core.tool import Tool
 from .utils.console import (
     console,
     get_user_input,
-    print_assistant_message,
+    print_assistant_response,
     print_error_message,
     print_system_message,
     print_tool_execution,
@@ -23,7 +23,7 @@ __all__ = [
     "ChatSession",
     "console",
     "print_user_message",
-    "print_assistant_message",
+    "print_assistant_response",
     "print_system_message",
     "print_error_message",
     "print_tool_execution",

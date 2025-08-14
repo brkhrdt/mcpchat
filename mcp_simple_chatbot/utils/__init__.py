@@ -3,7 +3,7 @@
 from .console import (
     console,
     get_user_input,
-    print_assistant_message,
+    print_assistant_response,
     print_error_message,
     print_system_message,
     print_tool_execution,
@@ -13,7 +13,7 @@ from .console import (
 __all__ = [
     "console",
     "print_user_message",
-    "print_assistant_message",
+    "print_assistant_response",
     "print_system_message",
     "print_error_message",
     "print_tool_execution",
