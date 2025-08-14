@@ -23,9 +23,10 @@ class ToolCall:
 
 
 class LLMResponse:
-    # thinking = None
-    # message = None
-    # tool = ToolCall
+    # role: str = None
+    # thinking str = None
+    # message str = None
+    # tool = ToolCall = none
     pass
 
 
@@ -47,9 +48,18 @@ class ChatSession:
 
     def _parse_llm_response(self, llm_response: str) -> LlmResponse:
         # split llm_response into these possible substrings
-        # <|channel|>channelname<|message|>message content
-        # <|start|>rolename
-        # <|channel|>commentary to=function.toolname json<|message|>jsonstring
+        # first split on this string:
+        # <|start|>([a-z]+)
+        # the capture is the role name
+
+        # then match on
+        # <|channel|>([a-z]+)<|message|>(.*)
+        # the first capture is the channel
+        # if analysis then save the right capture group to thinking
+        # message in message
+        # commentary in LLMRespones.commentary
+        # a specail case for commentary is the toolcall:
+        # <|channel|>commentary to=function.([^ ]+) json<|message|>(.*)
         pass
 
     async def process_llm_response(self, llm_response: str) -> str:
