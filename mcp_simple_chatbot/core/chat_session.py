@@ -257,14 +257,18 @@ class ChatSession:
                             final_response,
                         )
                         parsed_final_response = self._parse_llm_response(final_response)
+                        
+                        final_assistant_output_parts = []
                         if parsed_final_response.thinking:
-                            print_assistant_message(
+                            final_assistant_output_parts.append(
                                 f"_[thinking]_ {parsed_final_response.thinking}"
                             )
                         if parsed_final_response.message:
-                            print_assistant_message(parsed_final_response.message)
+                            final_assistant_output_parts.append(parsed_final_response.message)
                         if parsed_final_response.commentary:
-                            print_assistant_message(parsed_final_response.commentary)
+                            final_assistant_output_parts.append(parsed_final_response.commentary)
+                        
+                        print_assistant_message("\n\n".join(final_assistant_output_parts))
 
                         messages.append(
                             {
