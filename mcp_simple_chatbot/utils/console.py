@@ -54,42 +54,36 @@ def print_user_message(message: str) -> None:
 def print_assistant_response(parsed_response) -> None: # Type hint will be added in chat_session.py
     """Print assistant message with rich formatting based on LLMResponse."""
     
-    # Create a Rich Text object to build the message
-    full_message = Text()
+    renderables = []
 
     if parsed_response.thinking:
-        full_message.append("_[thinking] ", style="thinking") # Apply 'thinking' style
-        full_message.append(parsed_response.thinking, style="thinking")
-        full_message.append("_\n\n", style="thinking") # Add newline for separation
+        thinking_text = Text(f"_[thinking]{parsed_response.thinking}[/thinking]_")
+        renderables.append(thinking_text)
+        renderables.append(Text("\n")) # Add newline for separation
 
     if parsed_response.message:
-        # Markdown can be applied to a Text object, but it's often easier
-        # to render Markdown separately if it's a large block.
-        # For simplicity, we'll just append the message text.
-        # If you need full Markdown rendering for the message part,
-        # you might need to render it as a separate segment or use a more complex Rich layout.
-        full_message.append(parsed_response.message)
-        full_message.append("\n\n") # Add newline for separation
+        renderables.append(Markdown(parsed_response.message))
+        renderables.append(Text("\n")) # Add newline for separation
 
     if parsed_response.tool_call:
         tool = parsed_response.tool_call.tool
         arguments = parsed_response.tool_call.args
-        tool_json = f'```json\n{{"tool": "{tool}", "arguments": {json.dumps(arguments, indent=2)}}}\n```'
-        # Render tool_json as Markdown (code block)
-        full_message.append(Markdown(tool_json))
-        full_message.append("\n\n") # Add newline for separation
+        tool_json_str = json.dumps({"tool": tool, "arguments": arguments}, indent=2)
+        tool_syntax = Syntax(tool_json_str, "json", theme="monokai", line_numbers=False)
+        renderables.append(tool_syntax)
+        renderables.append(Text("\n")) # Add newline for separation
 
     if parsed_response.commentary and not (parsed_response.thinking or parsed_response.message or parsed_response.tool_call):
         # Only show commentary if no other specific channels were found
-        full_message.append(parsed_response.commentary)
-        full_message.append("\n\n") # Add newline for separation
+        renderables.append(Text(parsed_response.commentary))
+        renderables.append(Text("\n")) # Add newline for separation
 
     # Remove trailing newlines if any
-    if str(full_message).endswith("\n\n"):
-        full_message = Text(str(full_message).rstrip("\n"))
+    if renderables and isinstance(renderables[-1], Text) and str(renderables[-1]).strip() == "":
+        renderables.pop()
 
     panel = Panel(
-        full_message,
+        Text("\n").join(renderables), # Join renderables with a newline for spacing
         box=LEFT_BAR,
         title="[assistant]Assistant[/assistant]",
         title_align="left",
