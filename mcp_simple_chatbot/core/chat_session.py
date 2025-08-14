@@ -6,13 +6,18 @@ import re
 
 from ..utils.console import (
     get_user_input,
-    print_assistant_message,
+    print_assistant_response, # MODIFIED: Changed import
     print_error_message,
     print_system_message,
     print_tool_execution,
 )
 from .command_handler import CommandHandler
 from .server import Server
+from typing import TYPE_CHECKING # For type hinting LLMResponse
+
+if TYPE_CHECKING:
+    from mcp_simple_chatbot.clients.llm_client import LLMClient # Import for type hinting
+    # from mcp_simple_chatbot.core.chat_session import LLMResponse # This is in the same file, no need to import
 
 logger = logging.getLogger("mcp_simple_chatbot.chat_session")
 
@@ -52,7 +57,7 @@ class LLMResponse:
 class ChatSession:
     """Orchestrates the interaction between user, LLM, and tools."""
 
-    def __init__(self, servers: list[Server], llm_client) -> None:
+    def __init__(self, servers: list[Server], llm_client: "LLMClient") -> None: # Added type hint
         self.servers: list[Server] = servers
         self.llm_client = llm_client
         self.command_handler = CommandHandler()
@@ -97,7 +102,13 @@ class ChatSession:
         if tool_call_match:
             tool_name = tool_call_match.group(1).strip()
             tool_args_str = tool_call_match.group(2).strip()
-            parsed_response.tool_call = ToolCall(tool_name, json.loads(tool_args_str))
+            try:
+                parsed_response.tool_call = ToolCall(tool_name, json.loads(tool_args_str))
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse tool arguments JSON: {tool_args_str}")
+                # Fallback to commentary if tool args are malformed
+                parsed_response.commentary = llm_response.strip()
+
 
         if (
             not parsed_response.thinking
@@ -120,21 +131,14 @@ class ChatSession:
             The result of tool execution or the original response.
         """
         logger.info("Processing LLM response...")
-        assistant_output_parts = []
-        if parsed_response.thinking:
-            assistant_output_parts.append(f"_[thinking] {parsed_response.thinking}_")
-        if parsed_response.message:
-            assistant_output_parts.append(parsed_response.message)
-        if parsed_response.commentary:
-            assistant_output_parts.append(parsed_response.commentary)
+        
+        # MODIFIED: Call the new print function
+        print_assistant_response(parsed_response)
 
         if parsed_response.tool_call:
             tool = parsed_response.tool_call.tool
             arguments = parsed_response.tool_call.args
-            tool_json = f'```json\n{{"tool": "{tool}", "arguments": {json.dumps(arguments)}}}\n```'
-            assistant_output_parts.append(tool_json)
-
-            print_assistant_message("\n\n".join(assistant_output_parts))
+            
             logging.info(f"Executing tool: {tool}")
             logging.info(f"With arguments: {arguments}")
 
@@ -166,7 +170,8 @@ class ChatSession:
             logger.warning(f"No server found with tool: {tool}")
             return f"No server found with tool: {tool}"
         else:
-            print_assistant_message("\n\n".join(assistant_output_parts))
+            # No tool call, so the message/thinking/commentary was already printed by print_assistant_response
+            pass 
         logger.info("No tool call detected in LLM response.")
         return parsed_response.message if parsed_response.message else ""
 
@@ -251,30 +256,15 @@ class ChatSession:
                             json.dumps(messages, indent=2),
                         )
 
-                        final_response = self.llm_client.get_response(messages)
+                        final_response_raw = self.llm_client.get_response(messages)
                         logger.info(
                             "\nFinal response from LLM after tool execution: %s",
-                            final_response,
+                            final_response_raw,
                         )
-                        parsed_final_response = self._parse_llm_response(final_response)
+                        parsed_final_response = self._parse_llm_response(final_response_raw)
 
-                        final_assistant_output_parts = []
-                        if parsed_final_response.thinking:
-                            final_assistant_output_parts.append(
-                                f"_[thinking] {parsed_final_response.thinking}_"
-                            )
-                        if parsed_final_response.message:
-                            final_assistant_output_parts.append(
-                                parsed_final_response.message
-                            )
-                        if parsed_final_response.commentary:
-                            final_assistant_output_parts.append(
-                                parsed_final_response.commentary
-                            )
-
-                        print_assistant_message(
-                            "\n\n".join(final_assistant_output_parts)
-                        )
+                        # MODIFIED: Call the new print function
+                        print_assistant_response(parsed_final_response)
 
                         messages.append(
                             {

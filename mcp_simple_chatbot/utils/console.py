@@ -1,6 +1,7 @@
 """Rich console utilities for beautiful chat interface."""
 
 import logging
+import json # Added for json.dumps
 
 from mcp.types import CallToolResult, TextContent
 from rich.box import Box
@@ -10,6 +11,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.syntax import Syntax
 from rich.theme import Theme
+from rich.text import Text # Import Text for granular styling
 
 # Custom theme for the chat interface
 CHAT_THEME = Theme(
@@ -20,6 +22,7 @@ CHAT_THEME = Theme(
         "error": "bold red",
         "tool": "bold magenta",
         "info": "dim blue",
+        "thinking": "dim white", # Add a new style for thinking text
     }
 )
 
@@ -47,10 +50,46 @@ def print_user_message(message: str) -> None:
     console.print(panel)
 
 
-def print_assistant_message(message: str) -> None:
-    """Print assistant message with rich formatting."""
+# MODIFIED: Now takes LLMResponse object
+def print_assistant_response(parsed_response) -> None: # Type hint will be added in chat_session.py
+    """Print assistant message with rich formatting based on LLMResponse."""
+    
+    # Create a Rich Text object to build the message
+    full_message = Text()
+
+    if parsed_response.thinking:
+        full_message.append("_[thinking] ", style="thinking") # Apply 'thinking' style
+        full_message.append(parsed_response.thinking, style="thinking")
+        full_message.append("_\n\n", style="thinking") # Add newline for separation
+
+    if parsed_response.message:
+        # Markdown can be applied to a Text object, but it's often easier
+        # to render Markdown separately if it's a large block.
+        # For simplicity, we'll just append the message text.
+        # If you need full Markdown rendering for the message part,
+        # you might need to render it as a separate segment or use a more complex Rich layout.
+        full_message.append(parsed_response.message)
+        full_message.append("\n\n") # Add newline for separation
+
+    if parsed_response.tool_call:
+        tool = parsed_response.tool_call.tool
+        arguments = parsed_response.tool_call.args
+        tool_json = f'```json\n{{"tool": "{tool}", "arguments": {json.dumps(arguments, indent=2)}}}\n```'
+        # Render tool_json as Markdown (code block)
+        full_message.append(Markdown(tool_json))
+        full_message.append("\n\n") # Add newline for separation
+
+    if parsed_response.commentary and not (parsed_response.thinking or parsed_response.message or parsed_response.tool_call):
+        # Only show commentary if no other specific channels were found
+        full_message.append(parsed_response.commentary)
+        full_message.append("\n\n") # Add newline for separation
+
+    # Remove trailing newlines if any
+    if str(full_message).endswith("\n\n"):
+        full_message = Text(str(full_message).rstrip("\n"))
+
     panel = Panel(
-        Markdown(message),
+        full_message,
         box=LEFT_BAR,
         title="[assistant]Assistant[/assistant]",
         title_align="left",
