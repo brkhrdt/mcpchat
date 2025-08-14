@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+from typing import TYPE_CHECKING, Optional # Import Optional
 
 from ..utils.console import (
     get_user_input,
@@ -13,7 +14,7 @@ from ..utils.console import (
 )
 from .command_handler import CommandHandler
 from .server import Server
-from typing import TYPE_CHECKING # For type hinting LLMResponse
+# from typing import TYPE_CHECKING # For type hinting LLMResponse - already imported above
 
 if TYPE_CHECKING:
     from mcp_simple_chatbot.clients.llm_client import LLMClient # Import for type hinting
@@ -34,11 +35,11 @@ class ToolCall:
 class LLMResponse:
     def __init__(
         self,
-        role: str = None,
-        thinking: str = None,
-        message: str = None,
-        tool_call: ToolCall = None,
-        commentary: str = None,
+        role: Optional[str] = None, # Changed to Optional[str]
+        thinking: Optional[str] = None, # Changed to Optional[str]
+        message: Optional[str] = None, # Changed to Optional[str]
+        tool_call: Optional[ToolCall] = None, # Changed to Optional[ToolCall]
+        commentary: Optional[str] = None, # Changed to Optional[str]
     ):
         self.role = role
         self.thinking = thinking
