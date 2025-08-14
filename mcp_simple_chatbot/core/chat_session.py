@@ -227,9 +227,6 @@ class ChatSession:
                         continue
 
                     messages.append({"role": "user", "content": user_input})
-                    logging.debug(
-                        "Messages sent to LLM: %s", json.dumps(messages, indent=2)
-                    )
 
                     llm_response_raw = self.llm_client.get_response(messages)
                     # Debug print for raw LLM response is now in _parse_llm_response
