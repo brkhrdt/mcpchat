@@ -142,7 +142,9 @@ class ChatSession:
         if parsed_response.tool_call:
             tool = parsed_response.tool_call.tool
             arguments = parsed_response.tool_call.args
-            print_assistant_message(f"```json\n{{\"tool\": \"{tool}\", \"arguments\": {json.dumps(arguments)}}}\n```")
+            print_assistant_message(
+                f'```json\n{{"tool": "{tool}", "arguments": {json.dumps(arguments)}}}\n```'
+            )
 
             logging.info(f"Executing tool: {tool}")
             logging.info(f"With arguments: {arguments}")
@@ -234,14 +236,18 @@ class ChatSession:
                     result = await self.process_llm_response(parsed)
 
                     if parsed.tool_call:
-                        messages.append({"role": "assistant", "content": llm_response_raw})
+                        messages.append(
+                            {"role": "assistant", "content": llm_response_raw}
+                        )
                         messages.append({"role": "system", "content": result})
 
                         final_response = self.llm_client.get_response(messages)
                         logging.info("\nFinal response: %s", final_response)
                         parsed_final_response = self._parse_llm_response(final_response)
                         if parsed_final_response.thinking:
-                            print_assistant_message(f"_[thinking]_ {parsed_final_response.thinking}")
+                            print_assistant_message(
+                                f"_[thinking]_ {parsed_final_response.thinking}"
+                            )
                         if parsed_final_response.message:
                             print_assistant_message(parsed_final_response.message)
                         if parsed_final_response.commentary:
@@ -251,7 +257,9 @@ class ChatSession:
                             {"role": "assistant", "content": final_response}
                         )
                     else:
-                        messages.append({"role": "assistant", "content": llm_response_raw})
+                        messages.append(
+                            {"role": "assistant", "content": llm_response_raw}
+                        )
 
                 except KeyboardInterrupt:
                     print_system_message("👋 Goodbye!")
