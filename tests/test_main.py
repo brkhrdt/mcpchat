@@ -5,6 +5,7 @@ import pytest
 from mcp.types import CallToolResult, TextContent
 
 from mcp_simple_chatbot import ChatSession, LLMClient, Server, Tool
+from mcp_simple_chatbot.core.chat_session import LLMResponse, ToolCall
 
 
 @pytest.mark.asyncio
@@ -13,8 +14,9 @@ async def test_valid_json_command_execution():
     server."""
 
     # Mock LLM response with valid JSON tool call
-    mock_llm_response = json.dumps(
-        {"tool": "test_tool", "arguments": {"param1": "value1", "param2": "value2"}}
+    # Create an LLMResponse object instead of a raw JSON string
+    mock_llm_response_obj = LLMResponse(
+        tool_call=ToolCall(tool="test_tool", args={"param1": "value1", "param2": "value2"})
     )
 
     # Mock tool execution result
@@ -25,7 +27,10 @@ async def test_valid_json_command_execution():
 
     # Create mock LLM client
     mock_llm_client = MagicMock(spec=LLMClient)
-    mock_llm_client.get_response.return_value = mock_llm_response
+    # The LLMClient's get_response method should return a string that ChatSession._parse_llm_response can handle
+    # For this test, we are directly testing process_llm_response, so the LLMClient mock's return value isn't directly used here.
+    # However, if we were testing the full chat session flow, get_response would return a string.
+    # For the purpose of this test, we'll assume the parsing has already happened and we have an LLMResponse object.
 
     # Create mock server with tool
     mock_server = MagicMock(spec=Server)
@@ -54,7 +59,8 @@ async def test_valid_json_command_execution():
     chat_session = ChatSession([mock_server], mock_llm_client)
 
     # Test the process_llm_response method directly
-    result = await chat_session.process_llm_response(mock_llm_response)
+    # Pass the LLMResponse object
+    result = await chat_session.process_llm_response(mock_llm_response_obj)
 
     # Verify tool was executed with correct arguments
     mock_server.execute_tool.assert_called_once_with(
@@ -74,11 +80,13 @@ async def test_invalid_json_response_printed():
     """Test that invalid JSON responses don't trigger tool execution."""
 
     # Mock LLM response with invalid JSON
-    mock_llm_response = "This is not valid JSON - just a regular text response"
+    # Create an LLMResponse object with a message, as this is what _parse_llm_response would return for non-tool calls
+    mock_llm_response_obj = LLMResponse(message="This is not valid JSON - just a regular text response")
 
     # Create mock LLM client
     mock_llm_client = MagicMock(spec=LLMClient)
-    mock_llm_client.get_response.return_value = mock_llm_response
+    # Again, LLMClient's get_response would return a string, which would then be parsed into an LLMResponse object.
+    # For this test, we directly provide the parsed LLMResponse object.
 
     # Create mock server
     mock_server = MagicMock(spec=Server)
@@ -92,13 +100,14 @@ async def test_invalid_json_response_printed():
     chat_session = ChatSession([mock_server], mock_llm_client)
 
     # Process the invalid JSON response
-    result = await chat_session.process_llm_response(mock_llm_response)
+    # Pass the LLMResponse object
+    result = await chat_session.process_llm_response(mock_llm_response_obj)
 
     # Verify that execute_tool was never called (no valid JSON to execute)
     mock_server.execute_tool.assert_not_called()
 
-    # Verify the result is the original response
-    assert result == mock_llm_response
+    # Verify the result is the original message from the LLMResponse object
+    assert result == "This is not valid JSON - just a regular text response"
 
     # Clean up
     await chat_session.cleanup_servers()
