@@ -68,11 +68,38 @@ class ChatSession:
     def _parse_llm_response(self, llm_response: str) -> LLMResponse:
         logger.debug("Raw LLM response: %s", llm_response)
         parsed_response = LLMResponse()
-        # parsed_response.thinking = regex match <|channel|>analysis<|message|>(.*?)<|.*?|>
-        # parsed_response.role = regex match <|start|>(.*?)<|.*?|>
-        # parsed_response.tool_call = <|channel|>commentary to=functions.(.*?) json<|message|>(args json string, need to decode)
-        # else commentary might be
-        # parsed_response.commentary = regex match <|channel|>analysis<|message|>(.*?)<|.*?|>
+
+        # Regex to capture thinking/analysis
+        thinking_match = re.search(
+            r"<\|channel\|>analysis<\|message\|>(.*?)(?=<\||$)", llm_response, re.DOTALL
+        )
+        if thinking_match:
+            parsed_response.thinking = thinking_match.group(1).strip()
+
+        # Regex to capture role
+        role_match = re.search(r"<\|start\|>(.*?)(?=<\||$)", llm_response)
+        if role_match:
+            parsed_response.role = role_match.group(1).strip()
+
+        # Regex to capture tool call
+        tool_call_match = re.search(
+            r"<\|channel\|>commentary to=functions\.(.*?) json<\|message\|>(.*?)(?=<\||$)",
+            llm_response,
+            re.DOTALL,
+        )
+        if tool_call_match:
+            tool_name = tool_call_match.group(1).strip()
+            tool_args_str = tool_call_match.group(2).strip()
+            parsed_response.tool_call = ToolCall(tool_name, json.loads(tool_args_str))
+        else:
+            # If no tool call, the main message or commentary might be in a final message channel
+            message_match = re.search(r"<\|channel\|>final<\|message\|>(.*?)(?=<\||$)", llm_response, re.DOTALL)
+            if message_match:
+                parsed_response.message = message_match.group(1).strip()
+            elif not parsed_response.thinking and not parsed_response.tool_call:
+                # Fallback for commentary if no specific message or thinking was found
+                parsed_response.commentary = llm_response.strip()
+
         logger.debug("Parsed LLM response: %s", parsed_response)
         return parsed_response
 
