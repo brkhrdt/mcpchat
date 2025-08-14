@@ -90,7 +90,7 @@ class ChatSession:
 
         # Regex to capture tool call
         tool_call_match = re.search(
-            r"<\|channel\|>commentary to=functions\.(.*?) json<\|message\|>(.*?)(?=<\||$)",
+            r"<\|channel\|>commentary to=functions\.(.*?) ?json<\|message\|>(.*?)(?=<\||$)",
             llm_response,
             re.DOTALL,
         )
