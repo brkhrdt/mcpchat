@@ -1,17 +1,17 @@
 """Rich console utilities for beautiful chat interface."""
 
 import logging
-import json # Added for json.dumps
+import json
 
 from mcp.types import CallToolResult, TextContent
 from rich.box import Box
-from rich.console import Console
+from rich.console import Console, Group
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.syntax import Syntax
 from rich.theme import Theme
-from rich.text import Text # Import Text for granular styling
+from rich.text import Text
 
 # Custom theme for the chat interface
 CHAT_THEME = Theme(
@@ -22,7 +22,7 @@ CHAT_THEME = Theme(
         "error": "bold red",
         "tool": "bold magenta",
         "info": "dim blue",
-        "thinking": "dim white", # Add a new style for thinking text
+        "thinking": "dim white",
     }
 )
 
@@ -50,40 +50,40 @@ def print_user_message(message: str) -> None:
     console.print(panel)
 
 
-# MODIFIED: Now takes LLMResponse object
-def print_assistant_response(parsed_response) -> None: # Type hint will be added in chat_session.py
+def print_assistant_response(parsed_response) -> None:
     """Print assistant message with rich formatting based on LLMResponse."""
-    
-    renderables = []
+
+    # Create a list of renderables to be displayed within the panel
+    panel_content = []
 
     if parsed_response.thinking:
         thinking_text = Text(f"_[thinking]{parsed_response.thinking}[/thinking]_")
-        renderables.append(thinking_text)
-        renderables.append(Text("\n")) # Add newline for separation
+        panel_content.append(thinking_text)
+        panel_content.append(Text("\n")) # Add newline for separation
 
     if parsed_response.message:
-        renderables.append(Markdown(parsed_response.message))
-        renderables.append(Text("\n")) # Add newline for separation
+        panel_content.append(Markdown(parsed_response.message))
+        panel_content.append(Text("\n")) # Add newline for separation
 
     if parsed_response.tool_call:
         tool = parsed_response.tool_call.tool
         arguments = parsed_response.tool_call.args
         tool_json_str = json.dumps({"tool": tool, "arguments": arguments}, indent=2)
         tool_syntax = Syntax(tool_json_str, "json", theme="monokai", line_numbers=False)
-        renderables.append(tool_syntax)
-        renderables.append(Text("\n")) # Add newline for separation
+        panel_content.append(tool_syntax)
+        panel_content.append(Text("\n")) # Add newline for separation
 
     if parsed_response.commentary and not (parsed_response.thinking or parsed_response.message or parsed_response.tool_call):
         # Only show commentary if no other specific channels were found
-        renderables.append(Text(parsed_response.commentary))
-        renderables.append(Text("\n")) # Add newline for separation
+        panel_content.append(Text(parsed_response.commentary))
+        panel_content.append(Text("\n")) # Add newline for separation
 
     # Remove trailing newlines if any
-    if renderables and isinstance(renderables[-1], Text) and str(renderables[-1]).strip() == "":
-        renderables.pop()
+    if panel_content and isinstance(panel_content[-1], Text) and str(panel_content[-1]).strip() == "":
+        panel_content.pop()
 
     panel = Panel(
-        Text("\n").join(renderables), # Join renderables with a newline for spacing
+        Group(*panel_content), # Pass the list of renderables to Group
         box=LEFT_BAR,
         title="[assistant]Assistant[/assistant]",
         title_align="left",
@@ -124,7 +124,7 @@ def print_tool_execution(tool_name: str, result: CallToolResult) -> None:
             box=LEFT_BAR,
             border_style="magenta",
         )
-    except Exception:  # Changed from bare except
+    except Exception:
         # Fallback to plain text if syntax highlighting fails
         panel = Panel(
             text,
