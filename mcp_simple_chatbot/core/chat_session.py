@@ -37,14 +37,14 @@ class LLMResponse:
     ):
         self.role = role
         self.thinking = thinking
-        self.final = message
+        self.message = message
         self.tool_call = tool_call
         self.commentary = commentary
 
     def __repr__(self):
         return (
             f"LLMResponse(role='{self.role}', thinking='{self.thinking}', "
-            f"final='{self.final}', tool_call={self.tool_call}, "
+            f"message='{self.message}', tool_call={self.tool_call}, "
             f"commentary='{self.commentary}')"
         )
 
@@ -97,7 +97,7 @@ class ChatSession:
                 if channel == "analysis":
                     parsed_response.thinking = message_content
                 elif channel == "final":
-                    parsed_response.final = message_content
+                    parsed_response.message = message_content
                 elif channel == "commentary":
                     # Special case for tool call within commentary
                     tool_call_match = re.match(
@@ -122,62 +122,57 @@ class ChatSession:
                         parsed_response.commentary = message_content
         return parsed_response
 
-    async def process_llm_response(self, llm_response: str) -> str:
+    async def process_llm_response(self, parsed_response: LLMResponse) -> str:
         """Process the LLM response and execute tools if needed.
 
         Args:
-            llm_response: The response from the LLM.
+            parsed_response: The parsed response from the LLM.
 
         Returns:
             The result of tool execution or the original response.
         """
-        # Extract JSON content by removing everything before first { and after last }
-        # TODO just look for json block
-        first_brace = llm_response.find("{")
-        last_brace = llm_response.rfind("}")
+        # Print assistant message with formatting
+        if parsed_response.thinking:
+            print_assistant_message(f"_[thinking]_ {parsed_response.thinking}")
+        if parsed_response.message:
+            print_assistant_message(parsed_response.message)
+        if parsed_response.commentary:
+            print_assistant_message(parsed_response.commentary)
 
-        if first_brace != -1 and last_brace != -1 and first_brace <= last_brace:
-            json_content = llm_response[first_brace : last_brace + 1]
-        else:
-            json_content = llm_response
+        if parsed_response.tool_call:
+            tool = parsed_response.tool_call.tool
+            arguments = parsed_response.tool_call.args
+            print_assistant_message(f"```json\n{{\"tool\": \"{tool}\", \"arguments\": {json.dumps(arguments)}}}\n```")
 
-        try:
-            logging.debug(f"Testing for valid json:\n{json_content}")
-            tool_call = json.loads(json_content)
-            if "tool" in tool_call:
-                tool = tool_call["tool"]
-                arguments = tool_call.get("arguments", {})
-                logging.info(f"Executing tool: {tool}")
-                logging.info(f"With arguments: {arguments}")
+            logging.info(f"Executing tool: {tool}")
+            logging.info(f"With arguments: {arguments}")
 
-                logging.debug(f"Available servers: {self.servers}")
-                for server in self.servers:
-                    available_tools = await server.list_tools()
-                    logging.debug(f"Available tools: {available_tools}")
-                    if tool in [t.name for t in available_tools]:
-                        try:
-                            result = await server.execute_tool(tool, arguments)
+            logging.debug(f"Available servers: {self.servers}")
+            for server in self.servers:
+                available_tools = await server.list_tools()
+                logging.debug(f"Available tools: {available_tools}")
+                if tool in [t.name for t in available_tools]:
+                    try:
+                        result = await server.execute_tool(tool, arguments)
 
-                            if isinstance(result, dict) and "progress" in result:
-                                progress = result["progress"]
-                                total = result["total"]
-                                percentage = (progress / total) * 100
-                                logging.info(
-                                    f"Progress: {progress}/{total} ({percentage:.1f}%)"
-                                )
+                        if isinstance(result, dict) and "progress" in result:
+                            progress = result["progress"]
+                            total = result["total"]
+                            percentage = (progress / total) * 100
+                            logging.info(
+                                f"Progress: {progress}/{total} ({percentage:.1f}%)"
+                            )
 
-                            print_tool_execution(tool, result)
-                            return f"Tool execution result: {result}"
-                        except Exception as e:
-                            error_msg = f"Error executing tool: {str(e)}"
-                            print_error_message(error_msg)
-                            logging.error(error_msg)
-                            return error_msg
+                        print_tool_execution(tool, result)
+                        return f"Tool execution result: {result}"
+                    except Exception as e:
+                        error_msg = f"Error executing tool: {str(e)}"
+                        print_error_message(error_msg)
+                        logging.error(error_msg)
+                        return error_msg
 
-                return f"No server found with tool: {tool}"
-            return llm_response
-        except json.JSONDecodeError:
-            return llm_response
+            return f"No server found with tool: {tool}"
+        return parsed_response.message if parsed_response.message else ""
 
     async def start(self) -> None:
         """Main chat session handler."""
@@ -232,25 +227,31 @@ class ChatSession:
                     messages.append({"role": "user", "content": user_input})
                     logging.debug(json.dumps(messages, indent=2))
 
-                    llm_response = self.llm_client.get_response(messages)
+                    llm_response_raw = self.llm_client.get_response(messages)
 
-                    parsed = self._parse_llm_response(llm_response)
-                    print_assistant_message(llm_response)
+                    parsed = self._parse_llm_response(llm_response_raw)
 
-                    result = await self.process_llm_response(llm_response)
+                    result = await self.process_llm_response(parsed)
 
-                    if result != llm_response:
-                        messages.append({"role": "assistant", "content": llm_response})
+                    if parsed.tool_call:
+                        messages.append({"role": "assistant", "content": llm_response_raw})
                         messages.append({"role": "system", "content": result})
 
                         final_response = self.llm_client.get_response(messages)
                         logging.info("\nFinal response: %s", final_response)
-                        print_assistant_message(final_response)
+                        parsed_final_response = self._parse_llm_response(final_response)
+                        if parsed_final_response.thinking:
+                            print_assistant_message(f"_[thinking]_ {parsed_final_response.thinking}")
+                        if parsed_final_response.message:
+                            print_assistant_message(parsed_final_response.message)
+                        if parsed_final_response.commentary:
+                            print_assistant_message(parsed_final_response.commentary)
+
                         messages.append(
                             {"role": "assistant", "content": final_response}
                         )
                     else:
-                        messages.append({"role": "assistant", "content": llm_response})
+                        messages.append({"role": "assistant", "content": llm_response_raw})
 
                 except KeyboardInterrupt:
                     print_system_message("👋 Goodbye!")
