@@ -76,6 +76,13 @@ class ChatSession:
         if thinking_match:
             parsed_response.thinking = thinking_match.group(1).strip()
 
+        # Regex to capture thinking/analysis
+        message_match = re.search(
+            r"<\|channel\|>final<\|message\|>(.*?)(?=<\||$)", llm_response, re.DOTALL
+        )
+        if message_match:
+            parsed_response.message = message_match.group(1).strip()
+
         # Regex to capture role
         role_match = re.search(r"<\|start\|>(.*?)(?=<\||$)", llm_response)
         if role_match:
@@ -91,14 +98,14 @@ class ChatSession:
             tool_name = tool_call_match.group(1).strip()
             tool_args_str = tool_call_match.group(2).strip()
             parsed_response.tool_call = ToolCall(tool_name, json.loads(tool_args_str))
-        else:
-            # If no tool call, the main message or commentary might be in a final message channel
-            message_match = re.search(r"<\|channel\|>final<\|message\|>(.*?)(?=<\||$)", llm_response, re.DOTALL)
-            if message_match:
-                parsed_response.message = message_match.group(1).strip()
-            elif not parsed_response.thinking and not parsed_response.tool_call:
-                # Fallback for commentary if no specific message or thinking was found
-                parsed_response.commentary = llm_response.strip()
+
+        if (
+            not parsed_response.thinking
+            and not parsed_response.tool_call
+            and not parsed_response.message
+        ):
+            # Fallback for commentary if no specific message or thinking was found
+            parsed_response.commentary = llm_response.strip()
 
         logger.debug("Parsed LLM response: %s", parsed_response)
         return parsed_response
