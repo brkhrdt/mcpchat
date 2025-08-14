@@ -112,14 +112,14 @@ class ChatSession:
                 f"{tools_description}\n"
                 "Choose the appropriate tool based on the user's question. "
                 "If no tool is needed, reply directly.\n\n"
-                "IMPORTANT: When you need to use a tool, you must ONLY respond with "
-                "the exact JSON object format below, nothing else:\n"
-                "{\n"
-                '    "tool": "tool-name",\n'
-                '    "arguments": {\n'
-                '        "argument-name": "value"\n'
-                "    }\n"
-                "}\n\n"
+                # "IMPORTANT: When you need to use a tool, you must ONLY respond with "
+                # "the exact JSON object format below, nothing else:\n"
+                # "{\n"
+                # '    "tool": "tool-name",\n'
+                # '    "arguments": {\n'
+                # '        "argument-name": "value"\n'
+                # "    }\n"
+                # "}\n\n"
                 "After receiving a tool's response:\n"
                 "1. Transform the raw data into a natural, conversational response\n"
                 "2. Keep responses concise but informative\n"
@@ -129,7 +129,7 @@ class ChatSession:
                 "Please use only the tools that are explicitly defined above."
             )
 
-            messages = [{"role": "user", "content": system_message}]
+            messages = [{"role": "system", "content": system_message}]
 
             while True:
                 try:
@@ -157,7 +157,7 @@ class ChatSession:
 
                     if result != llm_response:
                         messages.append({"role": "assistant", "content": llm_response})
-                        messages.append({"role": "user", "content": result})
+                        messages.append({"role": "system", "content": result})
 
                         final_response = self.llm_client.get_response(messages)
                         logging.info("\nFinal response: %s", final_response)
