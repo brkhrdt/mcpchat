@@ -68,59 +68,11 @@ class ChatSession:
     def _parse_llm_response(self, llm_response: str) -> LLMResponse:
         logger.debug("Raw LLM response: %s", llm_response)
         parsed_response = LLMResponse()
-        parts = re.split(r"<\|start\|>([a-z]+)", llm_response)
-
-        # The first part before any <|start|> tag is usually empty or preamble
-        # The actual content starts from the first role
-        content_parts = parts[1:]
-
-        for i in range(0, len(content_parts), 2):
-            role = content_parts[i]
-            content = content_parts[i + 1]
-            parsed_response.role = (
-                role  # Assuming only one role in the final parsed response
-            )
-
-            # Split content by <|channel|>
-            channel_parts = re.split(r"<\|channel\|>([a-z]+)", content)
-            # The first part is usually empty or preamble before the first channel
-            channel_content_parts = channel_parts[1:]
-
-            for j in range(0, len(channel_content_parts), 2):
-                channel = channel_content_parts[j]
-                message_content_match = re.match(
-                    r"<\|message\|>(.*)", channel_content_parts[j + 1], re.DOTALL
-                )
-                if not message_content_match:
-                    continue
-                message_content = message_content_match.group(1).strip()
-
-                if channel == "analysis":
-                    parsed_response.thinking = message_content
-                elif channel == "final":
-                    parsed_response.message = message_content
-                elif channel == "commentary":
-                    # Special case for tool call within commentary
-                    tool_call_match = re.match(
-                        r"to=function\.([^ ]+) json<\|message\|>(.*)",
-                        channel_content_parts[j + 1],
-                        re.DOTALL,
-                    )
-                    if tool_call_match:
-                        tool_name = tool_call_match.group(1)
-                        json_args_str = tool_call_match.group(2).strip()
-                        try:
-                            args = json.loads(json_args_str)
-                            parsed_response.tool_call = ToolCall(tool_name, args)
-                        except json.JSONDecodeError:
-                            logging.warning(
-                                f"Could not parse tool arguments JSON: {json_args_str}"
-                            )
-                            parsed_response.commentary = (
-                                message_content  # Fallback to general commentary
-                            )
-                    else:
-                        parsed_response.commentary = message_content
+        # parsed_response.thinking = regex match <|channel|>analysis<|message|>(.*?)<|.*?|>
+        # parsed_response.role = regex match <|start|>(.*?)<|.*?|>
+        # parsed_response.tool_call = <|channel|>commentary to=functions.(.*?) json<|message|>(args json string, need to decode)
+        # else commentary might be
+        # parsed_response.commentary = regex match <|channel|>analysis<|message|>(.*?)<|.*?|>
         logger.debug("Parsed LLM response: %s", parsed_response)
         return parsed_response
 
@@ -241,7 +193,9 @@ class ChatSession:
                         continue
 
                     messages.append({"role": "user", "content": user_input})
-                    logging.debug("Messages sent to LLM: %s", json.dumps(messages, indent=2))
+                    logging.debug(
+                        "Messages sent to LLM: %s", json.dumps(messages, indent=2)
+                    )
 
                     llm_response_raw = self.llm_client.get_response(messages)
                     # Debug print for raw LLM response is now in _parse_llm_response
@@ -252,15 +206,23 @@ class ChatSession:
                     result = await self.process_llm_response(parsed)
 
                     if parsed.tool_call:
-                        logger.info("Tool call detected. Appending tool response to messages.")
+                        logger.info(
+                            "Tool call detected. Appending tool response to messages."
+                        )
                         messages.append(
                             {"role": "assistant", "content": llm_response_raw}
                         )
                         messages.append({"role": "system", "content": result})
-                        logger.debug("Messages after tool execution: %s", json.dumps(messages, indent=2))
+                        logger.debug(
+                            "Messages after tool execution: %s",
+                            json.dumps(messages, indent=2),
+                        )
 
                         final_response = self.llm_client.get_response(messages)
-                        logger.info("\nFinal response from LLM after tool execution: %s", final_response)
+                        logger.info(
+                            "\nFinal response from LLM after tool execution: %s",
+                            final_response,
+                        )
                         parsed_final_response = self._parse_llm_response(final_response)
                         if parsed_final_response.thinking:
                             print_assistant_message(
@@ -285,7 +247,9 @@ class ChatSession:
                     logger.info("Chat session interrupted by user (KeyboardInterrupt).")
                     break
                 except Exception as e:
-                    logger.exception("An unexpected error occurred during chat session.")
+                    logger.exception(
+                        "An unexpected error occurred during chat session."
+                    )
                     print_error_message(f"An unexpected error occurred: {e}")
 
         finally:
