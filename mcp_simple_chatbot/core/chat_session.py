@@ -119,22 +119,22 @@ class ChatSession:
         Returns:
             The result of tool execution or the original response.
         """
-        logger.info("Processing LLM response...")
-        # Print assistant message with formatting
+        logger.info("Processing LLM response...") 
+        assistant_output_parts = []
         if parsed_response.thinking:
-            print_assistant_message(f"_[thinking]_ {parsed_response.thinking}")
+            assistant_output_parts.append(f"_[thinking]_ {parsed_response.thinking}")
         if parsed_response.message:
-            print_assistant_message(parsed_response.message)
+            assistant_output_parts.append(parsed_response.message)
         if parsed_response.commentary:
-            print_assistant_message(parsed_response.commentary)
+            assistant_output_parts.append(parsed_response.commentary)
 
         if parsed_response.tool_call:
             tool = parsed_response.tool_call.tool
             arguments = parsed_response.tool_call.args
-            print_assistant_message(
-                f'```json\n{{"tool": "{tool}", "arguments": {json.dumps(arguments)}}}\n```'
-            )
+            tool_json = f'```json\n{{"tool": "{tool}", "arguments": {json.dumps(arguments)}}}\n```'
+            assistant_output_parts.append(tool_json)
 
+        print_assistant_message("\n".join(assistant_output_parts))
             logging.info(f"Executing tool: {tool}")
             logging.info(f"With arguments: {arguments}")
 
