@@ -270,7 +270,7 @@ class ChatSession:
                         messages.append(
                             {
                                 "role": "assistant",
-                                "content": parsed_final_response.message,
+                                "content": parsed_final_response.message or "", # Provide empty string fallback
                             }  # do not add thinking into message history
                         )
                     else:
@@ -278,7 +278,7 @@ class ChatSession:
                         messages.append(
                             {
                                 "role": "assistant",
-                                "content": parsed.message,
+                                "content": parsed.message or "", # Provide empty string fallback
                             }  # do not add thinking into message history
                         )
 
