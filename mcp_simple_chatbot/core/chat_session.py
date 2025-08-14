@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 
 from ..utils.console import (
     get_user_input,
@@ -17,17 +18,35 @@ logger = logging.getLogger("mcp_simple_chatbot.chat_session")
 
 
 class ToolCall:
-    # tool = str
-    # args = dict
-    pass
+    def __init__(self, tool: str, args: dict):
+        self.tool = tool
+        self.args = args
+
+    def __repr__(self):
+        return f"ToolCall(tool='{self.tool}', args={self.args})"
 
 
 class LLMResponse:
-    # role: str = None
-    # thinking str = None
-    # message str = None
-    # tool = ToolCall = none
-    pass
+    def __init__(
+        self,
+        role: str = None,
+        thinking: str = None,
+        message: str = None,
+        tool_call: ToolCall = None,
+        commentary: str = None,
+    ):
+        self.role = role
+        self.thinking = thinking
+        self.message = message
+        self.tool_call = tool_call
+        self.commentary = commentary
+
+    def __repr__(self):
+        return (
+            f"LLMResponse(role='{self.role}', thinking='{self.thinking}', "
+            f"message='{self.message}', tool_call={self.tool_call}, "
+            f"commentary='{self.commentary}')"
+        )
 
 
 class ChatSession:
@@ -46,21 +65,54 @@ class ChatSession:
             except Exception as e:
                 logging.warning(f"Warning during final cleanup: {e}")
 
-    def _parse_llm_response(self, llm_response: str) -> LlmResponse:
-        # split llm_response into these possible substrings
-        # first split on this string:
-        # <|start|>([a-z]+)
-        # the capture is the role name
+    def _parse_llm_response(self, llm_response: str) -> LLMResponse:
+        parsed_response = LLMResponse()
+        parts = re.split(r"<\|start\|>([a-z]+)", llm_response)
 
-        # then match on
-        # <|channel|>([a-z]+)<|message|>(.*)
-        # the first capture is the channel
-        # if analysis then save the right capture group to thinking
-        # message in message
-        # commentary in LLMRespones.commentary
-        # a specail case for commentary is the toolcall:
-        # <|channel|>commentary to=function.([^ ]+) json<|message|>(.*)
-        pass
+        # The first part before any <|start|> tag is usually empty or preamble
+        # The actual content starts from the first role
+        content_parts = parts[1:]
+
+        for i in range(0, len(content_parts), 2):
+            role = content_parts[i]
+            content = content_parts[i + 1]
+            parsed_response.role = role # Assuming only one role in the final parsed response
+
+            # Split content by <|channel|>
+            channel_parts = re.split(r"<\|channel\|>([a-z]+)", content)
+            # The first part is usually empty or preamble before the first channel
+            channel_content_parts = channel_parts[1:]
+
+            for j in range(0, len(channel_content_parts), 2):
+                channel = channel_content_parts[j]
+                message_content_match = re.match(r"<\|message\|>(.*)", channel_content_parts[j+1], re.DOTALL)
+                if not message_content_match:
+                    continue
+                message_content = message_content_match.group(1).strip()
+
+                if channel == "analysis":
+                    parsed_response.thinking = message_content
+                elif channel == "message":
+                    parsed_response.message = message_content
+                elif channel == "commentary":
+                    # Special case for tool call within commentary
+                    tool_call_match = re.match(
+                        r"to=function\.([^ ]+) json<\|message\|>(.*)",
+                        channel_content_parts[j+1],
+                        re.DOTALL
+                    )
+                    if tool_call_match:
+                        tool_name = tool_call_match.group(1)
+                        json_args_str = tool_call_match.group(2).strip()
+                        try:
+                            args = json.loads(json_args_str)
+                            parsed_response.tool_call = ToolCall(tool_name, args)
+                        except json.JSONDecodeError:
+                            logging.warning(f"Could not parse tool arguments JSON: {json_args_str}")
+                            parsed_response.commentary = message_content # Fallback to general commentary
+                    else:
+                        parsed_response.commentary = message_content
+        return parsed_response
 
     async def process_llm_response(self, llm_response: str) -> str:
         """Process the LLM response and execute tools if needed.
@@ -174,7 +226,7 @@ class ChatSession:
 
                     llm_response = self.llm_client.get_response(messages)
 
-                    parsed = _parse_llm_response(llm_response)
+                    parsed = self._parse_llm_response(llm_response)
                     print_assistant_message(llm_response)
 
                     result = await self.process_llm_response(llm_response)
