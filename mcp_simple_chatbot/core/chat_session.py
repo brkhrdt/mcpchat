@@ -66,6 +66,7 @@ class ChatSession:
                 logging.warning(f"Warning during final cleanup: {e}")
 
     def _parse_llm_response(self, llm_response: str) -> LLMResponse:
+        logger.debug("Raw LLM response: %s", llm_response)
         parsed_response = LLMResponse()
         parts = re.split(r"<\|start\|>([a-z]+)", llm_response)
 
@@ -120,6 +121,7 @@ class ChatSession:
                             )
                     else:
                         parsed_response.commentary = message_content
+        logger.debug("Parsed LLM response: %s", parsed_response)
         return parsed_response
 
     async def process_llm_response(self, parsed_response: LLMResponse) -> str:
@@ -131,6 +133,7 @@ class ChatSession:
         Returns:
             The result of tool execution or the original response.
         """
+        logger.info("Processing LLM response...")
         # Print assistant message with formatting
         if parsed_response.thinking:
             print_assistant_message(f"_[thinking]_ {parsed_response.thinking}")
@@ -166,6 +169,7 @@ class ChatSession:
                             )
 
                         print_tool_execution(tool, result)
+                        logger.info("Tool execution completed.")
                         return f"Tool execution result: {result}"
                     except Exception as e:
                         error_msg = f"Error executing tool: {str(e)}"
@@ -173,7 +177,9 @@ class ChatSession:
                         logging.error(error_msg)
                         return error_msg
 
+            logger.warning(f"No server found with tool: {tool}")
             return f"No server found with tool: {tool}"
+        logger.info("No tool call detected in LLM response.")
         return parsed_response.message if parsed_response.message else ""
 
     async def start(self) -> None:
@@ -181,7 +187,9 @@ class ChatSession:
         try:
             for server in self.servers:
                 try:
+                    logger.info(f"Initializing server: {server.name}")
                     await server.initialize()
+                    logger.info(f"Server {server.name} initialized successfully.")
                 except Exception as e:
                     logging.error(f"Failed to initialize server: {e}")
                     await self.cleanup_servers()
@@ -193,6 +201,7 @@ class ChatSession:
                 all_tools.extend(tools)
 
             tools_description = "\n".join([tool.format_for_llm() for tool in all_tools])
+            logger.debug("Tools description for LLM: \n%s", tools_description)
 
             system_message = (
                 "You are a helpful assistant with access to these tools:\n\n"
@@ -207,6 +216,7 @@ class ChatSession:
                 "5. Avoid simply repeating the raw data\n\n"
                 "Please use only the tools that are explicitly defined above."
             )
+            logger.debug("System message: %s", system_message)
 
             messages = [{"role": "system", "content": system_message}]
 
@@ -214,35 +224,43 @@ class ChatSession:
                 try:
                     # TODO user input async, command output async
                     user_input = get_user_input()
+                    logger.info("User input: %s", user_input)
                     if user_input.strip().lower() in ["quit", "exit"]:
                         print_system_message("👋 Goodbye!")
+                        logger.info("Chat session ended by user.")
                         break
 
                     # Check if input is a command
                     if self.command_handler.is_command(user_input):
+                        logger.info(f"Executing command: {user_input}")
                         command_response = await self.command_handler.execute_command(
                             user_input
                         )
                         print_system_message(command_response)
+                        logger.info(f"Command response: {command_response}")
                         continue
 
                     messages.append({"role": "user", "content": user_input})
-                    logging.debug(json.dumps(messages, indent=2))
+                    logging.debug("Messages sent to LLM: %s", json.dumps(messages, indent=2))
 
                     llm_response_raw = self.llm_client.get_response(messages)
+                    # Debug print for raw LLM response is now in _parse_llm_response
 
                     parsed = self._parse_llm_response(llm_response_raw)
+                    # Debug print for parsed LLM response is now in _parse_llm_response
 
                     result = await self.process_llm_response(parsed)
 
                     if parsed.tool_call:
+                        logger.info("Tool call detected. Appending tool response to messages.")
                         messages.append(
                             {"role": "assistant", "content": llm_response_raw}
                         )
                         messages.append({"role": "system", "content": result})
+                        logger.debug("Messages after tool execution: %s", json.dumps(messages, indent=2))
 
                         final_response = self.llm_client.get_response(messages)
-                        logging.info("\nFinal response: %s", final_response)
+                        logger.info("\nFinal response from LLM after tool execution: %s", final_response)
                         parsed_final_response = self._parse_llm_response(final_response)
                         if parsed_final_response.thinking:
                             print_assistant_message(
@@ -257,13 +275,20 @@ class ChatSession:
                             {"role": "assistant", "content": final_response}
                         )
                     else:
+                        logger.info("No tool call. Appending LLM response to messages.")
                         messages.append(
                             {"role": "assistant", "content": llm_response_raw}
                         )
 
                 except KeyboardInterrupt:
                     print_system_message("👋 Goodbye!")
+                    logger.info("Chat session interrupted by user (KeyboardInterrupt).")
                     break
+                except Exception as e:
+                    logger.exception("An unexpected error occurred during chat session.")
+                    print_error_message(f"An unexpected error occurred: {e}")
 
         finally:
+            logger.info("Cleaning up servers.")
             await self.cleanup_servers()
+            logger.info("Server cleanup complete.")
