@@ -119,10 +119,10 @@ class ChatSession:
         Returns:
             The result of tool execution or the original response.
         """
-        logger.info("Processing LLM response...") 
+        logger.info("Processing LLM response...")
         assistant_output_parts = []
         if parsed_response.thinking:
-            assistant_output_parts.append(f"_[thinking]_ {parsed_response.thinking}")
+            assistant_output_parts.append(f"_[thinking] {parsed_response.thinking}_")
         if parsed_response.message:
             assistant_output_parts.append(parsed_response.message)
         if parsed_response.commentary:
@@ -134,7 +134,7 @@ class ChatSession:
             tool_json = f'```json\n{{"tool": "{tool}", "arguments": {json.dumps(arguments)}}}\n```'
             assistant_output_parts.append(tool_json)
 
-        print_assistant_message("\n".join(assistant_output_parts))
+            print_assistant_message("\n\n".join(assistant_output_parts))
             logging.info(f"Executing tool: {tool}")
             logging.info(f"With arguments: {arguments}")
 
@@ -165,6 +165,8 @@ class ChatSession:
 
             logger.warning(f"No server found with tool: {tool}")
             return f"No server found with tool: {tool}"
+        else:
+            print_assistant_message("\n\n".join(assistant_output_parts))
         logger.info("No tool call detected in LLM response.")
         return parsed_response.message if parsed_response.message else ""
 
@@ -241,7 +243,7 @@ class ChatSession:
                             "Tool call detected. Appending tool response to messages."
                         )
                         messages.append(
-                            {"role": "assistant", "content": llm_response_raw}
+                            {"role": "assistant", "content": str(parsed.tool_call)}
                         )
                         messages.append({"role": "system", "content": result})
                         logger.debug(
@@ -265,12 +267,18 @@ class ChatSession:
                             print_assistant_message(parsed_final_response.commentary)
 
                         messages.append(
-                            {"role": "assistant", "content": final_response}
+                            {
+                                "role": "assistant",
+                                "content": parsed_final_response.message,
+                            }  # do not add thinking into message history
                         )
                     else:
                         logger.info("No tool call. Appending LLM response to messages.")
                         messages.append(
-                            {"role": "assistant", "content": llm_response_raw}
+                            {
+                                "role": "assistant",
+                                "content": parsed.message,
+                            }  # do not add thinking into message history
                         )
 
                 except KeyboardInterrupt:
