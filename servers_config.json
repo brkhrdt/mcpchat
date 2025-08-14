@@ -1,9 +1,15 @@
 {
-  "mcpServers": {
-      "shell": {
-          "command": "/home/s/git/tcl-shell-mcp/.venv/bin/python",
-          "args": ["/home/s/git/tcl-shell-mcp/src/shell_mcp.py"]
-      }
-
-  }
+    "mcpServers": {
+        "filesystem": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "--mount", "type=bind,src=/home/s/git/simple-chatbot-mcp/filesystem_test,dst=/projects",
+                "mcp/filesystem",
+                "/projects"
+            ]
+        }
+    }
 }
