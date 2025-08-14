@@ -16,5 +16,5 @@ def setup_logging() -> None:
     for name in logging.root.manager.loggerDict:
         if name.startswith("mcp_simple_chatbot"):
             logging.getLogger(name).setLevel(
-                logging.DEBUG
+                logging.ERROR
             )  # Changed from logging.ERROR to logging.INFO
