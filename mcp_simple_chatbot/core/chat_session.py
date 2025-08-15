@@ -98,6 +98,7 @@ class ChatSession:
         self.running_tools: Dict[str, asyncio.Task] = {}
         self.tool_counter = 0
         self.user_input_task: Optional[asyncio.Task] = None
+        self._monitor_user_input_enabled = True # New flag for testability
 
     async def cleanup_servers(self) -> None:
         """Clean up all servers properly."""
@@ -324,56 +325,62 @@ class ChatSession:
 
         return True
 
+    async def start_initialization(self) -> None:
+        """Initializes servers and discovers tools."""
+        print_system_message("Initializing servers and discovering tools...")
+        for server in self.servers.values():
+            try:
+                logger.info(f"Initializing server: {server.name}")
+                await server.initialize()
+                logger.info(f"Server {server.name} initialized successfully.")
+                tools = await server.list_tools()
+                for tool in tools:
+                    self.available_tools_schema.append(tool.format_for_llm())
+                    logger.info(f"Discovered tool: {tool.name} from {server.name}")
+            except Exception as e:
+                logging.error(f"Failed to initialize server {server.name}: {e}")
+                print_error_message(
+                    f"Failed to initialize server {server.name}: {e}"
+                )
+                await self.cleanup_servers()
+                raise # Re-raise to stop further execution if init fails
+
+        if not self.available_tools_schema:
+            print_system_message(
+                "No tools discovered. The chatbot will operate without tools."
+            )
+        else:
+            print_system_message(
+                f"Discovered {len(self.available_tools_schema)} tools. "
+                "Type /help for more information."
+            )
+
+        system_message = (
+            "You are a helpful assistant with access to these tools:\n\n"
+            f"{json.dumps(self.available_tools_schema, indent=2)}\n\n"
+            "Choose the appropriate tool based on the user's question. "
+            "If no tool is needed, reply directly.\n\n"
+            "After receiving a tool's response:\n"
+            "1. Transform the raw data into a natural, conversational response\n"
+            "2. Keep responses concise but informative\n"
+            "3. Focus on the most relevant information\n"
+            "4. Use appropriate context from the user's question\n"
+            "5. Avoid simply repeating the raw data\n\n"
+            "Please use only the tools that are explicitly defined above."
+        )
+        logger.debug("System message: %s", system_message)
+
+        self.messages.append({"role": "system", "content": system_message})
+
     async def start(self) -> None:
         """Main chat session with event-driven processing."""
+        input_monitor = None
         try:
-            print_system_message("Initializing servers and discovering tools...")
-            for server in self.servers.values():
-                try:
-                    logger.info(f"Initializing server: {server.name}")
-                    await server.initialize()
-                    logger.info(f"Server {server.name} initialized successfully.")
-                    tools = await server.list_tools()
-                    for tool in tools:
-                        self.available_tools_schema.append(tool.format_for_llm())
-                        logger.info(f"Discovered tool: {tool.name} from {server.name}")
-                except Exception as e:
-                    logging.error(f"Failed to initialize server {server.name}: {e}")
-                    print_error_message(
-                        f"Failed to initialize server {server.name}: {e}"
-                    )
-                    await self.cleanup_servers()
-                    return
+            await self.start_initialization()
 
-            if not self.available_tools_schema:
-                print_system_message(
-                    "No tools discovered. The chatbot will operate without tools."
-                )
-            else:
-                print_system_message(
-                    f"Discovered {len(self.available_tools_schema)} tools. "
-                    "Type /help for more information."
-                )
-
-            system_message = (
-                "You are a helpful assistant with access to these tools:\n\n"
-                f"{json.dumps(self.available_tools_schema, indent=2)}\n\n"
-                "Choose the appropriate tool based on the user's question. "
-                "If no tool is needed, reply directly.\n\n"
-                "After receiving a tool's response:\n"
-                "1. Transform the raw data into a natural, conversational response\n"
-                "2. Keep responses concise but informative\n"
-                "3. Focus on the most relevant information\n"
-                "4. Use appropriate context from the user's question\n"
-                "5. Avoid simply repeating the raw data\n\n"
-                "Please use only the tools that are explicitly defined above."
-            )
-            logger.debug("System message: %s", system_message)
-
-            self.messages.append({"role": "system", "content": system_message})
-
-            # Start user input monitoring
-            input_monitor = asyncio.create_task(self._monitor_user_input())
+            # Start user input monitoring if enabled
+            if self._monitor_user_input_enabled:
+                input_monitor = asyncio.create_task(self._monitor_user_input())
 
             try:
                 # Main event loop - process inputs as they arrive
@@ -388,7 +395,7 @@ class ChatSession:
 
         finally:
             # Cleanup
-            if "input_monitor" in locals():
+            if input_monitor: # Check if it was ever created
                 input_monitor.cancel()
                 try:
                     await input_monitor
