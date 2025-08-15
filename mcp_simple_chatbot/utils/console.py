@@ -57,13 +57,12 @@ def print_assistant_response(parsed_response) -> None:
     panel_content = []
 
     if parsed_response.thinking:
-        thinking_text = Text(f"_[thinking]{parsed_response.thinking}[/thinking]_")
+        thinking_text = Text(f"{parsed_response.thinking}", style='thinking')
+        thinking_text.stylize('italic')
         panel_content.append(thinking_text)
-        panel_content.append(Text("\n")) # Add newline for separation
 
     if parsed_response.message:
         panel_content.append(Markdown(parsed_response.message))
-        panel_content.append(Text("\n")) # Add newline for separation
 
     if parsed_response.tool_call:
         tool = parsed_response.tool_call.tool
@@ -71,12 +70,10 @@ def print_assistant_response(parsed_response) -> None:
         tool_json_str = json.dumps({"tool": tool, "arguments": arguments}, indent=2)
         tool_syntax = Syntax(tool_json_str, "json", theme="monokai", line_numbers=False)
         panel_content.append(tool_syntax)
-        panel_content.append(Text("\n")) # Add newline for separation
 
     if parsed_response.commentary and not (parsed_response.thinking or parsed_response.message or parsed_response.tool_call):
         # Only show commentary if no other specific channels were found
         panel_content.append(Text(parsed_response.commentary))
-        panel_content.append(Text("\n")) # Add newline for separation
 
     # Remove trailing newlines if any
     if panel_content and isinstance(panel_content[-1], Text) and str(panel_content[-1]).strip() == "":
