@@ -1,4 +1,3 @@
-import asyncio
 import json  # Import the json module
 from unittest.mock import AsyncMock, MagicMock
 
@@ -57,7 +56,7 @@ async def test_simulated_conversation(mock_chat_session):
                 (
                     "<|channel|>analysis<|message|>User is asking for weather. "
                     "I need to call the get_weather tool.<|channel|>commentary "
-                    "to=functions.get_weather json<|message|>{\"location\": \"London\"}"
+                    'to=functions.get_weather json<|message|>{"location": "London"}'
                 ),
                 # LLM's second response: final message after tool execution
                 (
