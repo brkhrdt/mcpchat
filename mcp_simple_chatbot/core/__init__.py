@@ -1,8 +1,8 @@
 """Core package for MCP Simple Chatbot."""
 
-from .chat_session import ChatSession
+from .chat_session import ChatSession, LLMResponse, ToolCall
 from .command_handler import CommandHandler
 from .server import Server
 from .tool import Tool
 
-__all__ = ["Server", "Tool", "ChatSession", "CommandHandler"]
+__all__ = ["Server", "Tool", "ChatSession", "CommandHandler", "LLMResponse", "ToolCall"]
