@@ -165,11 +165,13 @@ class ChatSession:
         """Start tool execution in background and return task ID."""
         self.tool_counter += 1
         task_id = f"tool_{self.tool_counter}"
-        
+
         # Create background task that will put result in queue when done
-        task = asyncio.create_task(self._execute_tool_and_queue_result(tool_call, task_id))
+        task = asyncio.create_task(
+            self._execute_tool_and_queue_result(tool_call, task_id)
+        )
         self.running_tools[task_id] = task
-        
+
         print_system_message(f"🔄 Started {tool_call.tool} (ID: {task_id})")
         return task_id
 
@@ -270,57 +272,56 @@ class ChatSession:
     async def _process_conversation_turn(self) -> bool:
         """
         Process a single input from the queue.
-        
+
         Returns:
             True to continue processing, False to exit
         """
         # Get next input (user or tool result)
         input_item: InputType = await self.input_queue.get()
-        
+
         if input_item.type == "user":
             logger.info("Processing user input: %s", input_item.content)
-            
+
             # Check for exit commands
             if input_item.content.strip().lower() in ["quit", "exit"]:
                 print_system_message("👋 Goodbye!")
                 logger.info("Chat session ended by user.")
                 return False
-            
+
             # Handle commands
             if self.command_handler.is_command(input_item.content):
-                command_response = await self.command_handler.execute_command(input_item.content)
+                command_response = await self.command_handler.execute_command(
+                    input_item.content
+                )
                 print_system_message(command_response)
                 return True
-            
+
             # Add to conversation history
             self.messages.append({"role": "user", "content": input_item.content})
-        
+
         elif input_item.type == "tool_result":
             logger.info("Processing tool result: %s", input_item.tool_id)
             # Add tool result to conversation
-            if hasattr(input_item.result, 'model_dump'):
+            if hasattr(input_item.result, "model_dump"):
                 content = json.dumps(input_item.result.model_dump())
             else:
                 content = json.dumps(input_item.result)
-            self.messages.append({
-                "role": "system", 
-                "content": content
-            })
-        
+            self.messages.append({"role": "system", "content": content})
+
         # Get LLM response
         llm_response_raw = self.llm_client.get_response(self.messages)
         parsed = self._parse_llm_response(llm_response_raw)
         print_assistant_response(parsed)
-        
+
         # Handle LLM response
         if parsed.tool_call:
             # Start tool execution (non-blocking)
             await self._start_tool_execution(parsed.tool_call)
-        
+
         if parsed.message:
             # Add final message to history
             self.messages.append({"role": "assistant", "content": parsed.message})
-        
+
         return True
 
     async def start(self) -> None:
@@ -373,35 +374,37 @@ class ChatSession:
 
             # Start user input monitoring
             input_monitor = asyncio.create_task(self._monitor_user_input())
-            
+
             try:
                 # Main event loop - process inputs as they arrive
                 while True:
                     should_continue = await self._process_conversation_turn()
                     if not should_continue:
                         break
-                        
+
             except KeyboardInterrupt:
                 print_system_message("👋 Goodbye!")
                 logger.info("Chat session interrupted by user (KeyboardInterrupt).")
-                
+
         finally:
             # Cleanup
-            if 'input_monitor' in locals():
+            if "input_monitor" in locals():
                 input_monitor.cancel()
                 try:
                     await input_monitor
                 except asyncio.CancelledError:
                     pass
-            
+
             # Cancel any running tools
             for task in self.running_tools.values():
                 task.cancel()
-            
+
             # Wait for running tools to complete cancellation
             if self.running_tools:
-                await asyncio.gather(*self.running_tools.values(), return_exceptions=True)
-            
+                await asyncio.gather(
+                    *self.running_tools.values(), return_exceptions=True
+                )
+
             logger.info("Cleaning up servers.")
             await self.cleanup_servers()
             logger.info("Server cleanup complete.")
