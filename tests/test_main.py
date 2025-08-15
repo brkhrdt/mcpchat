@@ -1,4 +1,3 @@
-import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -16,7 +15,9 @@ async def test_valid_json_command_execution():
     # Mock LLM response with valid JSON tool call
     # Create an LLMResponse object instead of a raw JSON string
     mock_llm_response_obj = LLMResponse(
-        tool_call=ToolCall(tool="test_tool", args={"param1": "value1", "param2": "value2"})
+        tool_call=ToolCall(
+            tool="test_tool", args={"param1": "value1", "param2": "value2"}
+        )
     )
 
     # Mock tool execution result
@@ -81,7 +82,9 @@ async def test_invalid_json_response_printed():
 
     # Mock LLM response with invalid JSON
     # Create an LLMResponse object with a message, as this is what _parse_llm_response would return for non-tool calls
-    mock_llm_response_obj = LLMResponse(message="This is not valid JSON - just a regular text response")
+    mock_llm_response_obj = LLMResponse(
+        message="This is not valid JSON - just a regular text response"
+    )
 
     # Create mock LLM client
     mock_llm_client = MagicMock(spec=LLMClient)

@@ -3,21 +3,24 @@
 import json
 import logging
 import re
-from typing import TYPE_CHECKING, Optional # Import Optional
+from typing import TYPE_CHECKING, Optional  # Import Optional
 
 from ..utils.console import (
     get_user_input,
-    print_assistant_response, # MODIFIED: Changed import
+    print_assistant_response,  # MODIFIED: Changed import
     print_error_message,
     print_system_message,
     print_tool_execution,
 )
 from .command_handler import CommandHandler
 from .server import Server
+
 # from typing import TYPE_CHECKING # For type hinting LLMResponse - already imported above
 
 if TYPE_CHECKING:
-    from mcp_simple_chatbot.clients.llm_client import LLMClient # Import for type hinting
+    from mcp_simple_chatbot.clients.llm_client import (
+        LLMClient,
+    )  # Import for type hinting
     # from mcp_simple_chatbot.core.chat_session import LLMResponse # This is in the same file, no need to import
 
 logger = logging.getLogger("mcp_simple_chatbot.chat_session")
@@ -35,11 +38,11 @@ class ToolCall:
 class LLMResponse:
     def __init__(
         self,
-        role: Optional[str] = None, # Changed to Optional[str]
-        thinking: Optional[str] = None, # Changed to Optional[str]
-        message: Optional[str] = None, # Changed to Optional[str]
-        tool_call: Optional[ToolCall] = None, # Changed to Optional[ToolCall]
-        commentary: Optional[str] = None, # Changed to Optional[str]
+        role: Optional[str] = None,  # Changed to Optional[str]
+        thinking: Optional[str] = None,  # Changed to Optional[str]
+        message: Optional[str] = None,  # Changed to Optional[str]
+        tool_call: Optional[ToolCall] = None,  # Changed to Optional[ToolCall]
+        commentary: Optional[str] = None,  # Changed to Optional[str]
     ):
         self.role = role
         self.thinking = thinking
@@ -58,7 +61,9 @@ class LLMResponse:
 class ChatSession:
     """Orchestrates the interaction between user, LLM, and tools."""
 
-    def __init__(self, servers: list[Server], llm_client: "LLMClient") -> None: # Added type hint
+    def __init__(
+        self, servers: list[Server], llm_client: "LLMClient"
+    ) -> None:  # Added type hint
         self.servers: list[Server] = servers
         self.llm_client = llm_client
         self.command_handler = CommandHandler()
@@ -104,12 +109,13 @@ class ChatSession:
             tool_name = tool_call_match.group(1).strip()
             tool_args_str = tool_call_match.group(2).strip()
             try:
-                parsed_response.tool_call = ToolCall(tool_name, json.loads(tool_args_str))
+                parsed_response.tool_call = ToolCall(
+                    tool_name, json.loads(tool_args_str)
+                )
             except json.JSONDecodeError:
                 logger.error(f"Failed to parse tool arguments JSON: {tool_args_str}")
                 # Fallback to commentary if tool args are malformed
                 parsed_response.commentary = llm_response.strip()
-
 
         if (
             not parsed_response.thinking
@@ -132,14 +138,14 @@ class ChatSession:
             The result of tool execution or the original response.
         """
         logger.info("Processing LLM response...")
-        
+
         # MODIFIED: Call the new print function
         print_assistant_response(parsed_response)
 
         if parsed_response.tool_call:
             tool = parsed_response.tool_call.tool
             arguments = parsed_response.tool_call.args
-            
+
             logging.info(f"Executing tool: {tool}")
             logging.info(f"With arguments: {arguments}")
 
@@ -172,7 +178,7 @@ class ChatSession:
             return f"No server found with tool: {tool}"
         else:
             # No tool call, so the message/thinking/commentary was already printed by print_assistant_response
-            pass 
+            pass
         logger.info("No tool call detected in LLM response.")
         return parsed_response.message if parsed_response.message else ""
 
@@ -262,7 +268,9 @@ class ChatSession:
                             "\nFinal response from LLM after tool execution: %s",
                             final_response_raw,
                         )
-                        parsed_final_response = self._parse_llm_response(final_response_raw)
+                        parsed_final_response = self._parse_llm_response(
+                            final_response_raw
+                        )
 
                         # MODIFIED: Call the new print function
                         print_assistant_response(parsed_final_response)
@@ -270,7 +278,8 @@ class ChatSession:
                         messages.append(
                             {
                                 "role": "assistant",
-                                "content": parsed_final_response.message or "", # Provide empty string fallback
+                                "content": parsed_final_response.message
+                                or "",  # Provide empty string fallback
                             }  # do not add thinking into message history
                         )
                     else:
@@ -278,7 +287,8 @@ class ChatSession:
                         messages.append(
                             {
                                 "role": "assistant",
-                                "content": parsed.message or "", # Provide empty string fallback
+                                "content": parsed.message
+                                or "",  # Provide empty string fallback
                             }  # do not add thinking into message history
                         )
 

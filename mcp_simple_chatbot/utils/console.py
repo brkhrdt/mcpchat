@@ -1,18 +1,18 @@
 """Rich console utilities for beautiful chat interface."""
 
-import logging
 import json
+import logging
 from typing import List
 
 from mcp.types import CallToolResult, TextContent
 from rich.box import Box
-from rich.console import Console, Group
+from rich.console import Console, Group, RenderableType
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.syntax import Syntax
-from rich.theme import Theme
 from rich.text import Text
+from rich.theme import Theme
 
 # Custom theme for the chat interface
 CHAT_THEME = Theme(
@@ -58,8 +58,8 @@ def print_assistant_response(parsed_response) -> None:
     panel_content: List[RenderableType] = []
 
     if parsed_response.thinking:
-        thinking_text = Text(f"{parsed_response.thinking}", style='thinking')
-        thinking_text.stylize('italic')
+        thinking_text = Text(f"{parsed_response.thinking}", style="thinking")
+        thinking_text.stylize("italic")
         panel_content.append(thinking_text)
 
     if parsed_response.message:
@@ -72,16 +72,22 @@ def print_assistant_response(parsed_response) -> None:
         tool_syntax = Syntax(tool_json_str, "json", theme="monokai", line_numbers=False)
         panel_content.append(tool_syntax)
 
-    if parsed_response.commentary and not (parsed_response.thinking or parsed_response.message or parsed_response.tool_call):
+    if parsed_response.commentary and not (
+        parsed_response.thinking or parsed_response.message or parsed_response.tool_call
+    ):
         # Only show commentary if no other specific channels were found
         panel_content.append(Text(parsed_response.commentary))
 
     # Remove trailing newlines if any
-    if panel_content and isinstance(panel_content[-1], Text) and str(panel_content[-1]).strip() == "":
+    if (
+        panel_content
+        and isinstance(panel_content[-1], Text)
+        and str(panel_content[-1]).strip() == ""
+    ):
         panel_content.pop()
 
     panel = Panel(
-        Group(*panel_content), # Pass the list of renderables to Group
+        Group(*panel_content),  # Pass the list of renderables to Group
         box=LEFT_BAR,
         title="[assistant]Assistant[/assistant]",
         title_align="left",
