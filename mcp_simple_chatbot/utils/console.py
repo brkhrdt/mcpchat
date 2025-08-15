@@ -2,6 +2,7 @@
 
 import logging
 import json
+from typing import List
 
 from mcp.types import CallToolResult, TextContent
 from rich.box import Box
@@ -54,7 +55,7 @@ def print_assistant_response(parsed_response) -> None:
     """Print assistant message with rich formatting based on LLMResponse."""
 
     # Create a list of renderables to be displayed within the panel
-    panel_content = []
+    panel_content: List[RenderableType] = []
 
     if parsed_response.thinking:
         thinking_text = Text(f"{parsed_response.thinking}", style='thinking')
