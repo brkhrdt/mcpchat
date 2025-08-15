@@ -1,111 +1,104 @@
-import pytest
-from unittest.mock import Mock
+import json
+from unittest.mock import MagicMock
 
-from mcp_simple_chatbot.core.chat_session import ChatSession, ToolCall
-from mcp_simple_chatbot.clients.llm_client import LLMClient
+import pytest
+
+from mcp_simple_chatbot.core.chat_session import ChatSession, LLMResponse, ToolCall
+from mcp_simple_chatbot.core.server import Server
 
 
 @pytest.fixture
 def chat_session_parser():
-    """Fixture to provide a ChatSession instance for testing parsing methods."""
-    # We only need a dummy ChatSession instance to call the _parse_llm_response method.
-    # Its dependencies (servers, llm_client) are not relevant for this specific test.
-    mock_llm_client = Mock(spec=LLMClient)
-    return ChatSession(servers=[], llm_client=mock_llm_client)
+    # Mock LLMClient and Server as they are dependencies for ChatSession
+    mock_llm_client = MagicMock()
+    mock_server = MagicMock(spec=Server)
+    mock_server.name = "mock_server"
+    mock_server.list_tools.return_value = []  # No tools needed for parsing tests
+    return ChatSession(servers=[mock_server], llm_client=mock_llm_client)
 
 
 def test_parse_llm_response_greeting(chat_session_parser):
     """Test parsing an LLM response for a simple greeting."""
     llm_response_string = (
-        '<|channel|>analysis<|message|>User says "hi". Likely just greeting. No tool needed.'
-        "<|start|>assistant<|channel|>final<|message|>Hello! How can I help you today?"
+        '<|channel|>analysis<|message|>User says "hi". Likely just greeting. '
+        "No tool needed.<|start|>assistant<|channel|>final<|message|>Hello! "
+        "How can I help you today?"
     )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
-    assert (
-        parsed_response.thinking
-        == 'User says "hi". Likely just greeting. No tool needed.'
-    )
     assert parsed_response.role == "assistant"
+    assert parsed_response.thinking == 'User says "hi". Likely just greeting. No tool needed.'
     assert parsed_response.message == "Hello! How can I help you today?"
     assert parsed_response.tool_call is None
-    assert parsed_response.commentary is None
+    assert parsed_response.commentary == llm_response_string
 
 
 def test_parse_llm_response_tool_call(chat_session_parser):
     """Test parsing an LLM response that includes a tool call."""
     llm_response_string = (
         "<|channel|>analysis<|message|>Need to list directory /projects. Use list_directory tool."
-        '<|start|>assistant<|channel|>commentary to=functions.list_directory json<|message|>{"path":"/projects"}'
+        '<|start|>assistant<|channel|>commentary to=functions.list_directory json<|message|>'
+        '{"path":"/projects"}'
     )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
-    assert (
-        parsed_response.thinking
-        == "Need to list directory /projects. Use list_directory tool."
-    )
     assert parsed_response.role == "assistant"
+    assert parsed_response.thinking == (
+        "Need to list directory /projects. Use list_directory tool."
+    )
     assert parsed_response.message is None
     assert isinstance(parsed_response.tool_call, ToolCall)
     assert parsed_response.tool_call.tool == "list_directory"
     assert parsed_response.tool_call.args == {"path": "/projects"}
-    assert parsed_response.commentary is None
+    assert parsed_response.commentary == llm_response_string
 
 
 def test_parse_llm_response_only_message(chat_session_parser):
-    """Test parsing an LLM response with only a final message."""
-    llm_response_string = (
-        "<|channel|>final<|message|>This is a direct message from the assistant."
-    )
+    """Test parsing an LLM response that only contains a final message."""
+    llm_response_string = "<|channel|>final<|message|>Here is your answer."
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
+    assert parsed_response.role == "assistant"
     assert parsed_response.thinking is None
-    assert parsed_response.role is None  # Role is only set if <|start|> is present
-    assert parsed_response.message == "This is a direct message from the assistant."
+    assert parsed_response.message == "Here is your answer."
     assert parsed_response.tool_call is None
-    assert parsed_response.commentary is None
+    assert parsed_response.commentary == llm_response_string
 
 
 def test_parse_llm_response_only_thinking(chat_session_parser):
-    """Test parsing an LLM response with only thinking."""
-    llm_response_string = "<|channel|>analysis<|message|>Just thinking out loud."
+    """Test parsing an LLM response that only contains thinking/analysis."""
+    llm_response_string = "<|channel|>analysis<|message|>I am thinking about the next step."
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
-    assert parsed_response.thinking == "Just thinking out loud."
-    assert parsed_response.role is None
+    assert parsed_response.role == "assistant"
+    assert parsed_response.thinking == "I am thinking about the next step."
     assert parsed_response.message is None
     assert parsed_response.tool_call is None
-    assert parsed_response.commentary is None
+    assert parsed_response.commentary == llm_response_string
 
 
 def test_parse_llm_response_full_cycle_with_tool_and_final_message(chat_session_parser):
     """Test a more complex scenario with thinking, tool call, and a subsequent final message."""
     llm_response_string = (
-        "<|channel|>analysis<|message|>User wants to know the weather. I will use the get_weather tool."
-        '<|start|>assistant<|channel|>commentary to=functions.get_weather json<|message|>{"location":"London"}'
+        "<|channel|>analysis<|message|>User wants to know the weather. "
+        "I will use the get_weather tool."
+        '<|start|>assistant<|channel|>commentary to=functions.get_weather json<|message|>'
+        '{"location":"London"}'
         "<|channel|>final<|message|>The weather in London is 15 degrees Celsius and partly cloudy."
     )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
-    assert (
-        parsed_response.thinking
-        == "User wants to know the weather. I will use the get_weather tool."
-    )
     assert parsed_response.role == "assistant"
-    # Note: The current parsing logic prioritizes tool_call if present, and then message.
-    # If both are in the string, and the tool call regex matches first, the message might be missed
-    # unless the regexes are ordered or designed to capture all parts independently.
-    # Based on the current implementation, if a tool call is found, the 'final' message might not be captured
-    # as the primary 'message' field, but rather the tool call takes precedence.
-    # Let's adjust the expectation based on the current code's behavior.
-    assert (
-        parsed_response.message
-        == "The weather in London is 15 degrees Celsius and partly cloudy."
+    assert parsed_response.thinking == (
+        "User wants to know the weather. I will use the get_weather tool."
     )
     assert isinstance(parsed_response.tool_call, ToolCall)
     assert parsed_response.tool_call.tool == "get_weather"
     assert parsed_response.tool_call.args == {"location": "London"}
-    assert parsed_response.commentary is None
+    assert parsed_response.message == (
+        "The weather in London is 15 degrees Celsius and partly cloudy."
+    )
+    assert parsed_response.commentary == llm_response_string
 
 
 def test_parse_llm_response_only_commentary_fallback(chat_session_parser):
@@ -115,39 +108,53 @@ def test_parse_llm_response_only_commentary_fallback(chat_session_parser):
     )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
+    assert parsed_response.role == "assistant"
     assert parsed_response.thinking is None
-    assert parsed_response.role is None
     assert parsed_response.message is None
     assert parsed_response.tool_call is None
-    assert (
-        parsed_response.commentary
-        == "This is just some raw commentary from the LLM without specific channels."
-    )
+    assert parsed_response.commentary == llm_response_string
 
 
 def test_parse_llm_response_empty_string(chat_session_parser):
-    """Test parsing an empty string."""
+    """Test parsing an empty string response."""
     llm_response_string = ""
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
+    assert parsed_response.role == "assistant"
     assert parsed_response.thinking is None
-    assert parsed_response.role is None
     assert parsed_response.message is None
     assert parsed_response.tool_call is None
-    assert (
-        parsed_response.commentary == ""
-    )  # Empty string is still commentary if nothing else matches
+    assert parsed_response.commentary == ""
 
 
 def test_parse_llm_response_tool_call_no_thinking(chat_session_parser):
     """Test parsing a tool call without preceding thinking."""
-    llm_response_string = '<|start|>assistant<|channel|>commentary to=functions.search json<|message|>{"query":"latest news"}'
+    llm_response_string = (
+        '<|start|>assistant<|channel|>commentary to=functions.search json<|message|>'
+        '{"query":"latest news"}'
+    )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
-    assert parsed_response.thinking is None
     assert parsed_response.role == "assistant"
+    assert parsed_response.thinking is None
     assert parsed_response.message is None
     assert isinstance(parsed_response.tool_call, ToolCall)
     assert parsed_response.tool_call.tool == "search"
     assert parsed_response.tool_call.args == {"query": "latest news"}
-    assert parsed_response.commentary is None
+    assert parsed_response.commentary == llm_response_string
+
+
+def test_parse_llm_response_malformed_tool_json(chat_session_parser):
+    """Test parsing a tool call with malformed JSON arguments."""
+    llm_response_string = (
+        "<|channel|>analysis<|message|>I will try to use a tool."
+        '<|start|>assistant<|channel|>commentary to=functions.bad_tool json<|message|>'
+        '{"arg1":"value1", "arg2":}'  # Malformed JSON
+    )
+    parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
+
+    assert parsed_response.role == "assistant"
+    assert parsed_response.thinking == "I will try to use a tool."
+    assert parsed_response.tool_call is None  # Tool call should be invalidated
+    assert "Error: LLM provided malformed tool arguments." in parsed_response.message
+    assert parsed_response.commentary == llm_response_string

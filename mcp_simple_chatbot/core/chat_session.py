@@ -3,11 +3,12 @@
 import json
 import logging
 import re
-from typing import TYPE_CHECKING, Optional  # Import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-from ..utils.console import (
-    get_user_input,
-    print_assistant_response,  # MODIFIED: Changed import
+from mcp.messages import CallToolResult
+
+from mcp_simple_chatbot.utils import (
+    print_assistant_response,
     print_error_message,
     print_system_message,
     print_tool_execution,
@@ -15,13 +16,12 @@ from ..utils.console import (
 from .command_handler import CommandHandler
 from .server import Server
 
-# from typing import TYPE_CHECKING # For type hinting LLMResponse - already imported above
-
 if TYPE_CHECKING:
-    from mcp_simple_chatbot.clients.llm_client import (
+    from mcp_simple_chatbot.clients import (
         LLMClient,
     )  # Import for type hinting
-    # from mcp_simple_chatbot.core.chat_session import LLMResponse # This is in the same file, no need to import
+    # from mcp_simple_chatbot.core.chat_session import LLMResponse # This is in the same
+    # file, no need to import
 
 logger = logging.getLogger("mcp_simple_chatbot.chat_session")
 
@@ -62,42 +62,40 @@ class ChatSession:
     """Orchestrates the interaction between user, LLM, and tools."""
 
     def __init__(
-        self, servers: list[Server], llm_client: "LLMClient"
-    ) -> None:  # Added type hint
-        self.servers: list[Server] = servers
+        self, servers: list[Server], llm_client: "LLMClient", debug_mode: bool = False
+    ) -> None:
+        self.servers = {server.name: server for server in servers}
         self.llm_client = llm_client
+        self.debug_mode = debug_mode
+        self.messages: list[dict[str, str]] = []
+        self.available_tools_schema: list[dict[str, Any]] = []
         self.command_handler = CommandHandler()
 
     async def cleanup_servers(self) -> None:
         """Clean up all servers properly."""
-        for server in reversed(self.servers):
+        for server in self.servers.values():
             try:
                 await server.cleanup()
             except Exception as e:
                 logging.warning(f"Warning during final cleanup: {e}")
 
     def _parse_llm_response(self, llm_response: str) -> LLMResponse:
-        logger.debug("Raw LLM response: %s", llm_response)
-        parsed_response = LLMResponse()
+        """
+        Parses the LLM's raw string response into a structured LLMResponse object.
+        This method handles different message channels and extracts relevant information.
+        """
+        logger.debug(f"Parsing LLM response:\n{llm_response}")
+        # Default role to assistant and commentary to the full raw response
+        parsed_response = LLMResponse(role="assistant", commentary=llm_response)
 
         # Regex to capture thinking/analysis
-        thinking_match = re.search(
-            r"<\|channel\|>analysis<\|message\|>(.*?)(?=<\||$)", llm_response, re.DOTALL
+        analysis_match = re.search(
+            r"<\|channel\|>analysis<\|message\|>(.*?)(?=<\||$)",
+            llm_response,
+            re.DOTALL,
         )
-        if thinking_match:
-            parsed_response.thinking = thinking_match.group(1).strip()
-
-        # Regex to capture thinking/analysis
-        message_match = re.search(
-            r"<\|channel\|>final<\|message\|>(.*?)(?=<\||$)", llm_response, re.DOTALL
-        )
-        if message_match:
-            parsed_response.message = message_match.group(1).strip()
-
-        # Regex to capture role
-        role_match = re.search(r"<\|start\|>(.*?)(?=<\||$)", llm_response)
-        if role_match:
-            parsed_response.role = role_match.group(1).strip()
+        if analysis_match:
+            parsed_response.thinking = analysis_match.group(1).strip()
 
         # Regex to capture tool call
         tool_call_match = re.search(
@@ -107,29 +105,35 @@ class ChatSession:
         )
         if tool_call_match:
             tool_name = tool_call_match.group(1).strip()
-            tool_args_str = tool_call_match.group(2).strip()
             try:
-                parsed_response.tool_call = ToolCall(
-                    tool_name, json.loads(tool_args_str)
-                )
+                tool_args = json.loads(tool_call_match.group(2).strip())
+                parsed_response.tool_call = ToolCall(tool_name, tool_args)
             except json.JSONDecodeError:
-                logger.error(f"Failed to parse tool arguments JSON: {tool_args_str}")
-                # Fallback to commentary if tool args are malformed
-                parsed_response.commentary = llm_response.strip()
+                logger.error(
+                    f"Failed to parse tool arguments JSON: {tool_call_match.group(2)}"
+                )
+                # If tool args are malformed, treat it as a message error
+                parsed_response.message = (
+                    "Error: LLM provided malformed tool arguments. "
+                    "Please try rephrasing your request."
+                )
+                parsed_response.tool_call = None  # Invalidate tool call if args are bad
 
-        if (
-            not parsed_response.thinking
-            and not parsed_response.tool_call
-            and not parsed_response.message
-        ):
-            # Fallback for commentary if no specific message or thinking was found
-            parsed_response.commentary = llm_response.strip()
+        # Regex to capture final message
+        final_message_match = re.search(
+            r"<\|channel\|>final<\|message\|>(.*?)(?=<\||$)",
+            llm_response,
+            re.DOTALL,
+        )
+        if final_message_match:
+            parsed_response.message = final_message_match.group(1).strip()
 
         logger.debug("Parsed LLM response: %s", parsed_response)
         return parsed_response
 
     async def process_llm_response(self, parsed_response: LLMResponse) -> str:
-        """Process the LLM response and execute tools if needed.
+        """
+        Process the LLM response and execute tools if needed.
 
         Args:
             parsed_response: The parsed response from the LLM.
@@ -139,8 +143,9 @@ class ChatSession:
         """
         logger.info("Processing LLM response...")
 
-        # MODIFIED: Call the new print function
-        print_assistant_response(parsed_response)
+        # Always print thinking if present
+        if parsed_response.thinking:
+            print_assistant_response(parsed_response, thinking_only=True)
 
         if parsed_response.tool_call:
             tool = parsed_response.tool_call.tool
@@ -149,63 +154,106 @@ class ChatSession:
             logging.info(f"Executing tool: {tool}")
             logging.info(f"With arguments: {arguments}")
 
-            logging.debug(f"Available servers: {self.servers}")
-            for server in self.servers:
+            found_tool_server = None
+            for server in self.servers.values():
                 available_tools = await server.list_tools()
-                logging.debug(f"Available tools: {available_tools}")
                 if tool in [t.name for t in available_tools]:
-                    try:
-                        result = await server.execute_tool(tool, arguments)
+                    found_tool_server = server
+                    break
 
-                        if isinstance(result, dict) and "progress" in result:
-                            progress = result["progress"]
-                            total = result["total"]
-                            percentage = (progress / total) * 100
-                            logging.info(
-                                f"Progress: {progress}/{total} ({percentage:.1f}%)"
-                            )
+            if found_tool_server:
+                try:
+                    result = await found_tool_server.execute_tool(tool, arguments)
 
-                        print_tool_execution(tool, result)
-                        logger.info("Tool execution completed.")
-                        return f"Tool execution result: {result}"
-                    except Exception as e:
-                        error_msg = f"Error executing tool: {str(e)}"
-                        print_error_message(error_msg)
-                        logging.error(error_msg)
-                        return error_msg
+                    if isinstance(result, dict) and "progress" in result:
+                        progress = result["progress"]
+                        total = result["total"]
+                        percentage = (progress / total) * 100
+                        logging.info(
+                            f"Progress: {progress}/{total} ({percentage:.1f}%)"
+                        )
 
-            logger.warning(f"No server found with tool: {tool}")
-            return f"No server found with tool: {tool}"
+                    print_tool_execution(tool, result)
+                    logger.info("Tool execution completed.")
+
+                    # Append tool output to messages for LLM to process
+                    self.messages.append(
+                        {
+                            "role": "tool",
+                            "content": json.dumps(result.model_dump()),
+                            "name": tool,
+                        }
+                    )
+
+                    # Call LLM again to interpret the tool result
+                    logger.info("Calling LLM to interpret tool result...")
+                    llm_follow_up_response_raw = self.llm_client.get_response(
+                        self.messages
+                    )
+                    parsed_follow_up_response = self._parse_llm_response(
+                        llm_follow_up_response_raw
+                    )
+                    # Recursively process the follow-up response
+                    return await self.process_llm_response(parsed_follow_up_response)
+
+                except Exception as e:
+                    error_msg = f"Error executing tool: {str(e)}"
+                    print_error_message(error_msg)
+                    logging.error(error_msg)
+                    # Append error to messages for LLM to potentially handle
+                    self.messages.append({"role": "system", "content": error_msg})
+                    return error_msg
+            else:
+                logger.warning(f"No server found with tool: {tool}")
+                error_msg = f"No server found with tool: {tool}"
+                print_error_message(error_msg)
+                self.messages.append({"role": "system", "content": error_msg})
+                return error_msg
         else:
-            # No tool call, so the message/thinking/commentary was already printed by print_assistant_response
-            pass
-        logger.info("No tool call detected in LLM response.")
-        return parsed_response.message if parsed_response.message else ""
+            # If there's a final message, print it
+            if parsed_response.message:
+                print_assistant_response(parsed_response)
+                return parsed_response.message
+            # If no tool call and no final message, but there was commentary (e.g., malformed response)
+            elif parsed_response.commentary:
+                print_assistant_response(parsed_response)
+                return parsed_response.commentary
+            else:
+                logger.info("No tool call or final message detected in LLM response.")
+                return ""
 
     async def start(self) -> None:
         """Main chat session handler."""
         try:
-            for server in self.servers:
+            print_system_message("Initializing servers and discovering tools...")
+            for server in self.servers.values():
                 try:
                     logger.info(f"Initializing server: {server.name}")
                     await server.initialize()
                     logger.info(f"Server {server.name} initialized successfully.")
+                    tools = await server.list_tools()
+                    for tool in tools:
+                        self.available_tools_schema.append(tool.format_for_llm())
+                        logger.info(f"Discovered tool: {tool.name} from {server.name}")
                 except Exception as e:
-                    logging.error(f"Failed to initialize server: {e}")
+                    logging.error(f"Failed to initialize server {server.name}: {e}")
+                    print_error_message(f"Failed to initialize server {server.name}: {e}")
                     await self.cleanup_servers()
                     return
 
-            all_tools = []
-            for server in self.servers:
-                tools = await server.list_tools()
-                all_tools.extend(tools)
-
-            tools_description = "\n".join([tool.format_for_llm() for tool in all_tools])
-            logger.debug("Tools description for LLM: \n%s", tools_description)
+            if not self.available_tools_schema:
+                print_system_message(
+                    "No tools discovered. The chatbot will operate without tools."
+                )
+            else:
+                print_system_message(
+                    f"Discovered {len(self.available_tools_schema)} tools. "
+                    "Type /help for more information."
+                )
 
             system_message = (
                 "You are a helpful assistant with access to these tools:\n\n"
-                f"{tools_description}\n"
+                f"{json.dumps(self.available_tools_schema, indent=2)}\n\n"
                 "Choose the appropriate tool based on the user's question. "
                 "If no tool is needed, reply directly.\n\n"
                 "After receiving a tool's response:\n"
@@ -218,12 +266,11 @@ class ChatSession:
             )
             logger.debug("System message: %s", system_message)
 
-            messages = [{"role": "system", "content": system_message}]
+            self.messages.append({"role": "system", "content": system_message})
 
             while True:
                 try:
-                    # TODO user input async, command output async
-                    user_input = get_user_input()
+                    user_input = input("You: ")  # Using input for now, will switch to get_user_input
                     logger.info("User input: %s", user_input)
                     if user_input.strip().lower() in ["quit", "exit"]:
                         print_system_message("👋 Goodbye!")
@@ -240,56 +287,19 @@ class ChatSession:
                         logger.info(f"Command response: {command_response}")
                         continue
 
-                    messages.append({"role": "user", "content": user_input})
+                    self.messages.append({"role": "user", "content": user_input})
 
-                    llm_response_raw = self.llm_client.get_response(messages)
-                    # Debug print for raw LLM response is now in _parse_llm_response
+                    llm_response_raw = self.llm_client.get_response(self.messages)
 
                     parsed = self._parse_llm_response(llm_response_raw)
-                    # Debug print for parsed LLM response is now in _parse_llm_response
 
-                    result = await self.process_llm_response(parsed)
+                    final_response_content = await self.process_llm_response(parsed)
 
-                    if parsed.tool_call:
-                        logger.info(
-                            "Tool call detected. Appending tool response to messages."
-                        )
-                        messages.append(
-                            {"role": "assistant", "content": str(parsed.tool_call)}
-                        )
-                        messages.append({"role": "system", "content": result})
-                        logger.debug(
-                            "Messages after tool execution: %s",
-                            json.dumps(messages, indent=2),
-                        )
-
-                        final_response_raw = self.llm_client.get_response(messages)
-                        logger.info(
-                            "\nFinal response from LLM after tool execution: %s",
-                            final_response_raw,
-                        )
-                        parsed_final_response = self._parse_llm_response(
-                            final_response_raw
-                        )
-
-                        # MODIFIED: Call the new print function
-                        print_assistant_response(parsed_final_response)
-
-                        messages.append(
-                            {
-                                "role": "assistant",
-                                "content": parsed_final_response.message
-                                or "",  # Provide empty string fallback
-                            }  # do not add thinking into message history
-                        )
-                    else:
-                        logger.info("No tool call. Appending LLM response to messages.")
-                        messages.append(
-                            {
-                                "role": "assistant",
-                                "content": parsed.message
-                                or "",  # Provide empty string fallback
-                            }  # do not add thinking into message history
+                    # Append the assistant's final message to history if it's not a tool call
+                    # Tool calls and their results are handled within process_llm_response
+                    if not parsed.tool_call and final_response_content:
+                        self.messages.append(
+                            {"role": "assistant", "content": final_response_content}
                         )
 
                 except KeyboardInterrupt:
