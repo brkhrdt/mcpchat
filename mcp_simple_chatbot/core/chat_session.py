@@ -1,9 +1,11 @@
 """Chat session orchestration."""
 
+import asyncio
 import json
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Optional
+from asyncio import Queue
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from mcp_simple_chatbot.utils import (
     print_assistant_response,
@@ -57,6 +59,29 @@ class LLMResponse:
         )
 
 
+class UserInput:
+    def __init__(self, content: str):
+        self.content = content
+        self.type = "user"
+
+    def __repr__(self):
+        return f"UserInput(content='{self.content}')"
+
+
+class ToolResult:
+    def __init__(self, tool_id: str, result: Any, tool_name: str):
+        self.tool_id = tool_id
+        self.result = result
+        self.tool_name = tool_name
+        self.type = "tool_result"
+
+    def __repr__(self):
+        return f"ToolResult(tool_id='{self.tool_id}', tool_name='{self.tool_name}')"
+
+
+InputType = Union[UserInput, ToolResult]
+
+
 class ChatSession:
     """Orchestrates the interaction between user, LLM, and tools."""
 
@@ -69,6 +94,10 @@ class ChatSession:
         self.messages: list[dict[str, str]] = []
         self.available_tools_schema: list[dict[str, Any]] = []
         self.command_handler = CommandHandler()
+        self.input_queue: Queue = Queue()
+        self.running_tools: Dict[str, asyncio.Task] = {}
+        self.tool_counter = 0
+        self.user_input_task: Optional[asyncio.Task] = None
 
     async def cleanup_servers(self) -> None:
         """Clean up all servers properly."""
@@ -132,6 +161,38 @@ class ChatSession:
         logger.debug("Parsed LLM response: %s", parsed_response)
         return parsed_response
 
+    async def _start_tool_execution(self, tool_call: ToolCall) -> str:
+        """Start tool execution in background and return task ID."""
+        self.tool_counter += 1
+        task_id = f"tool_{self.tool_counter}"
+        
+        # Create background task that will put result in queue when done
+        task = asyncio.create_task(self._execute_tool_and_queue_result(tool_call, task_id))
+        self.running_tools[task_id] = task
+        
+        print_system_message(f"🔄 Started {tool_call.tool} (ID: {task_id})")
+        return task_id
+
+    async def _execute_tool_and_queue_result(self, tool_call: ToolCall, task_id: str):
+        """Execute tool and put result in input queue."""
+        try:
+            result = await self._execute_tool_call(tool_call)
+            if result:
+                tool_result = ToolResult(task_id, result, tool_call.tool)
+                await self.input_queue.put(tool_result)
+                print_system_message(f"✅ {tool_call.tool} completed (ID: {task_id})")
+        except Exception as e:
+            logger.error(f"Tool {task_id} failed: {e}")
+            # Put error result in queue
+            error_result = {"error": str(e), "tool": tool_call.tool}
+            tool_result = ToolResult(task_id, error_result, tool_call.tool)
+            await self.input_queue.put(tool_result)
+            print_system_message(f"❌ {tool_call.tool} failed (ID: {task_id})")
+        finally:
+            # Clean up completed task
+            if task_id in self.running_tools:
+                del self.running_tools[task_id]
+
     async def _execute_tool_call(self, tool_call: ToolCall) -> Optional[Any]:
         """
         Execute a single tool call and return the result.
@@ -160,7 +221,6 @@ class ChatSession:
             error_msg = f"No server found with tool: {tool}"
             logger.warning(error_msg)
             print_error_message(error_msg)
-            self.messages.append({"role": "system", "content": error_msg})
             return None
 
         try:
@@ -181,49 +241,90 @@ class ChatSession:
             error_msg = f"Error executing tool: {str(e)}"
             print_error_message(error_msg)
             logging.error(error_msg)
-            self.messages.append({"role": "system", "content": error_msg})
             return None
 
-    async def _process_conversation_turn(self) -> None:
-        """
-        Process a complete conversation turn, handling LLM responses and tool executions
-        until a final message is provided or no further action is needed.
-        """
+    async def _monitor_user_input(self):
+        """Background task to monitor user input and add to queue."""
         while True:
-            # Get LLM response
-            llm_response_raw = self.llm_client.get_response(self.messages)
-            parsed = self._parse_llm_response(llm_response_raw)
-
-            # Display the LLM's response (thinking, commentary, etc.)
-            print_assistant_response(parsed)
-
-            # If there's a tool call, execute it and continue the loop
-            if parsed.tool_call:
-                tool_result = await self._execute_tool_call(parsed.tool_call)
-                if tool_result:
-                    # Add tool result to messages and continue processing
-                    self.messages.append(
-                        {
-                            "role": "system",
-                            "content": json.dumps(tool_result.model_dump()),
-                        }
-                    )
-                    continue
+            try:
+                user_input = await self._get_user_input_async()
+                if user_input is not None:
+                    await self.input_queue.put(UserInput(user_input))
                 else:
-                    # Tool execution failed, break the loop
+                    # EOF received, exit gracefully
                     break
-
-            # If there's a final message, add it to history and end the turn
-            if parsed.message:
-                self.messages.append({"role": "assistant", "content": parsed.message})
+            except asyncio.CancelledError:
                 break
+            except Exception as e:
+                logger.error(f"Error monitoring user input: {e}")
 
-            # If no tool call and no final message, log warning and end turn
-            logger.warning("LLM provided no tool call or final message. Ending turn.")
-            break
+    async def _get_user_input_async(self) -> Optional[str]:
+        """Get user input asynchronously."""
+        try:
+            return await asyncio.to_thread(input, "You: ")
+        except EOFError:
+            return None
+        except KeyboardInterrupt:
+            return None
+
+    async def _process_conversation_turn(self) -> bool:
+        """
+        Process a single input from the queue.
+        
+        Returns:
+            True to continue processing, False to exit
+        """
+        # Get next input (user or tool result)
+        input_item: InputType = await self.input_queue.get()
+        
+        if input_item.type == "user":
+            logger.info("Processing user input: %s", input_item.content)
+            
+            # Check for exit commands
+            if input_item.content.strip().lower() in ["quit", "exit"]:
+                print_system_message("👋 Goodbye!")
+                logger.info("Chat session ended by user.")
+                return False
+            
+            # Handle commands
+            if self.command_handler.is_command(input_item.content):
+                command_response = await self.command_handler.execute_command(input_item.content)
+                print_system_message(command_response)
+                return True
+            
+            # Add to conversation history
+            self.messages.append({"role": "user", "content": input_item.content})
+        
+        elif input_item.type == "tool_result":
+            logger.info("Processing tool result: %s", input_item.tool_id)
+            # Add tool result to conversation
+            if hasattr(input_item.result, 'model_dump'):
+                content = json.dumps(input_item.result.model_dump())
+            else:
+                content = json.dumps(input_item.result)
+            self.messages.append({
+                "role": "system", 
+                "content": content
+            })
+        
+        # Get LLM response
+        llm_response_raw = self.llm_client.get_response(self.messages)
+        parsed = self._parse_llm_response(llm_response_raw)
+        print_assistant_response(parsed)
+        
+        # Handle LLM response
+        if parsed.tool_call:
+            # Start tool execution (non-blocking)
+            await self._start_tool_execution(parsed.tool_call)
+        
+        if parsed.message:
+            # Add final message to history
+            self.messages.append({"role": "assistant", "content": parsed.message})
+        
+        return True
 
     async def start(self) -> None:
-        """Main chat session handler."""
+        """Main chat session with event-driven processing."""
         try:
             print_system_message("Initializing servers and discovering tools...")
             for server in self.servers.values():
@@ -270,43 +371,37 @@ class ChatSession:
 
             self.messages.append({"role": "system", "content": system_message})
 
-            while True:
-                try:
-                    user_input = input("You: ")
-                    logger.info("User input: %s", user_input)
-
-                    if user_input.strip().lower() in ["quit", "exit"]:
-                        print_system_message("👋 Goodbye!")
-                        logger.info("Chat session ended by user.")
+            # Start user input monitoring
+            input_monitor = asyncio.create_task(self._monitor_user_input())
+            
+            try:
+                # Main event loop - process inputs as they arrive
+                while True:
+                    should_continue = await self._process_conversation_turn()
+                    if not should_continue:
                         break
-
-                    # Check if input is a command - handle immediately and continue
-                    if self.command_handler.is_command(user_input):
-                        logger.info(f"Executing command: {user_input}")
-                        command_response = await self.command_handler.execute_command(
-                            user_input
-                        )
-                        print_system_message(command_response)
-                        logger.info(f"Command response: {command_response}")
-                        continue
-
-                    # Add user message to conversation history
-                    self.messages.append({"role": "user", "content": user_input})
-
-                    # Process the conversation until LLM provides a final response
-                    await self._process_conversation_turn()
-
-                except KeyboardInterrupt:
-                    print_system_message("👋 Goodbye!")
-                    logger.info("Chat session interrupted by user (KeyboardInterrupt).")
-                    break
-                except Exception as e:
-                    logger.exception(
-                        "An unexpected error occurred during chat session."
-                    )
-                    print_error_message(f"An unexpected error occurred: {e}")
-
+                        
+            except KeyboardInterrupt:
+                print_system_message("👋 Goodbye!")
+                logger.info("Chat session interrupted by user (KeyboardInterrupt).")
+                
         finally:
+            # Cleanup
+            if 'input_monitor' in locals():
+                input_monitor.cancel()
+                try:
+                    await input_monitor
+                except asyncio.CancelledError:
+                    pass
+            
+            # Cancel any running tools
+            for task in self.running_tools.values():
+                task.cancel()
+            
+            # Wait for running tools to complete cancellation
+            if self.running_tools:
+                await asyncio.gather(*self.running_tools.values(), return_exceptions=True)
+            
             logger.info("Cleaning up servers.")
             await self.cleanup_servers()
             logger.info("Server cleanup complete.")
