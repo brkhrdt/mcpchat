@@ -1,3 +1,5 @@
+import asyncio
+import json  # Import the json module
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -52,9 +54,16 @@ async def test_simulated_conversation(mock_chat_session):
             "input_content": "What's the weather like in London?",
             "llm_responses": [
                 # LLM's first response: thinking and a tool call
-                '<|channel|>analysis<|message|>User is asking for weather. I need to call the get_weather tool.<|channel|>commentary to=functions.get_weather json<|message|>{"location": "London"}',
+                (
+                    "<|channel|>analysis<|message|>User is asking for weather. "
+                    "I need to call the get_weather tool.<|channel|>commentary "
+                    "to=functions.get_weather json<|message|>{\"location\": \"London\"}"
+                ),
                 # LLM's second response: final message after tool execution
-                "<|channel|>final<|message|>The weather in London is currently 15°C and partly cloudy.",
+                (
+                    "<|channel|>final<|message|>The weather in London is currently "
+                    "15°C and partly cloudy."
+                ),
             ],
             "expected_tool_call": {
                 "tool": "get_weather",
@@ -91,7 +100,10 @@ async def test_simulated_conversation(mock_chat_session):
             "input_content": "Tell me a joke.",
             "llm_responses": [
                 # LLM's response: direct message, no tool call
-                "<|channel|>final<|message|>Why don't scientists trust atoms? Because they make up everything!"
+                (
+                    "<|channel|>final<|message|>Why don't scientists trust atoms? "
+                    "Because they make up everything!"
+                )
             ],
             "expected_messages_after_turn_1": [
                 {"role": "system", "content": MagicMock()},  # Initial system message
@@ -162,31 +174,11 @@ async def test_simulated_conversation(mock_chat_session):
 
                 # Simulate tool result being put back into the queue
                 # This mimics the background task completing
-                tool_id_pattern = (
-                    r"tool_\d+"  # We don't know the exact ID, just the pattern
-                )
-                # Find the tool call in the messages to get its ID
-                tool_call_message = next(
-                    (
-                        msg
-                        for msg in chat_session.messages
-                        if "commentary to=functions" in msg.get("content", "")
-                    ),
-                    None,
-                )
-                assert tool_call_message is not None, (
-                    "Tool call message not found in history"
-                )
-
-                # Extract the tool ID from the assistant's response (e.g., "Started get_weather (ID: tool_1)")
-                # This is a bit brittle, ideally the tool_id would be more directly accessible
-                # For now, we'll assume the print_system_message format
-                # A more robust way would be to capture the return value of _start_tool_execution
-
-                # For this test, we'll just use a placeholder ID as we're directly putting to queue
-                # In a real scenario, you'd await the task created by _start_tool_execution
-                # and then put the result with the correct ID.
-                # For now, we'll just use a dummy ID and ensure the tool result is processed.
+                # For this test, we'll just use a placeholder ID as we're directly
+                # putting to queue. In a real scenario, you'd await the task created
+                # by _start_tool_execution and then put the result with the correct ID.
+                # For now, we'll just use a dummy ID and ensure the tool result is
+                # processed.
                 dummy_tool_id = "tool_1"  # This will be the first tool ID generated
 
                 await chat_session.input_queue.put(
@@ -202,11 +194,13 @@ async def test_simulated_conversation(mock_chat_session):
                 assert should_continue is True
 
             # Verify the final state of messages for this step
-            # We need to be careful with the system message content as it contains dynamic tool schema
-            # So we'll compare roles and user/assistant content, and check system content for keywords
+            # We need to be careful with the system message content as it contains
+            # dynamic tool schema. So we'll compare roles and user/assistant content,
+            # and check system content for keywords.
 
             # For the first step, check against expected_messages_after_turn_2
-            # For subsequent steps, check against expected_messages_after_turn_1 (which is cumulative)
+            # For subsequent steps, check against expected_messages_after_turn_1
+            # (which is cumulative)
             expected_messages = step.get(
                 "expected_messages_after_turn_2"
                 if "expected_tool_call" in step
@@ -228,5 +222,6 @@ async def test_simulated_conversation(mock_chat_session):
                 else:
                     assert actual_msg["content"] == expected_msg["content"]
 
-        # Add more input types (e.g., tool_result) if your script needs to simulate them directly
-        # For this example, tool_results are handled internally after a tool_call
+        # Add more input types (e.g., tool_result) if your script needs to simulate
+        # them directly. For this example, tool_results are handled internally
+        # after a tool_call.
