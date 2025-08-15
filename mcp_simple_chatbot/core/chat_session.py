@@ -98,7 +98,7 @@ class ChatSession:
         self.running_tools: Dict[str, asyncio.Task] = {}
         self.tool_counter = 0
         self.user_input_task: Optional[asyncio.Task] = None
-        self._monitor_user_input_enabled = True # New flag for testability
+        self._monitor_user_input_enabled = True  # New flag for testability
 
     async def cleanup_servers(self) -> None:
         """Clean up all servers properly."""
@@ -339,11 +339,9 @@ class ChatSession:
                     logger.info(f"Discovered tool: {tool.name} from {server.name}")
             except Exception as e:
                 logging.error(f"Failed to initialize server {server.name}: {e}")
-                print_error_message(
-                    f"Failed to initialize server {server.name}: {e}"
-                )
+                print_error_message(f"Failed to initialize server {server.name}: {e}")
                 await self.cleanup_servers()
-                raise # Re-raise to stop further execution if init fails
+                raise  # Re-raise to stop further execution if init fails
 
         if not self.available_tools_schema:
             print_system_message(
@@ -395,7 +393,7 @@ class ChatSession:
 
         finally:
             # Cleanup
-            if input_monitor: # Check if it was ever created
+            if input_monitor:  # Check if it was ever created
                 input_monitor.cancel()
                 try:
                     await input_monitor
