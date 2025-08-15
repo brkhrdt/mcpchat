@@ -1,9 +1,8 @@
-import json
 from unittest.mock import MagicMock
 
 import pytest
 
-from mcp_simple_chatbot.core.chat_session import ChatSession, LLMResponse, ToolCall
+from mcp_simple_chatbot.core.chat_session import ChatSession, ToolCall
 from mcp_simple_chatbot.core.server import Server
 
 
@@ -27,7 +26,10 @@ def test_parse_llm_response_greeting(chat_session_parser):
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
     assert parsed_response.role == "assistant"
-    assert parsed_response.thinking == 'User says "hi". Likely just greeting. No tool needed.'
+    assert (
+        parsed_response.thinking
+        == 'User says "hi". Likely just greeting. No tool needed.'
+    )
     assert parsed_response.message == "Hello! How can I help you today?"
     assert parsed_response.tool_call is None
     assert parsed_response.commentary == llm_response_string
@@ -37,7 +39,7 @@ def test_parse_llm_response_tool_call(chat_session_parser):
     """Test parsing an LLM response that includes a tool call."""
     llm_response_string = (
         "<|channel|>analysis<|message|>Need to list directory /projects. Use list_directory tool."
-        '<|start|>assistant<|channel|>commentary to=functions.list_directory json<|message|>'
+        "<|start|>assistant<|channel|>commentary to=functions.list_directory json<|message|>"
         '{"path":"/projects"}'
     )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
@@ -67,7 +69,9 @@ def test_parse_llm_response_only_message(chat_session_parser):
 
 def test_parse_llm_response_only_thinking(chat_session_parser):
     """Test parsing an LLM response that only contains thinking/analysis."""
-    llm_response_string = "<|channel|>analysis<|message|>I am thinking about the next step."
+    llm_response_string = (
+        "<|channel|>analysis<|message|>I am thinking about the next step."
+    )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
     assert parsed_response.role == "assistant"
@@ -82,7 +86,7 @@ def test_parse_llm_response_full_cycle_with_tool_and_final_message(chat_session_
     llm_response_string = (
         "<|channel|>analysis<|message|>User wants to know the weather. "
         "I will use the get_weather tool."
-        '<|start|>assistant<|channel|>commentary to=functions.get_weather json<|message|>'
+        "<|start|>assistant<|channel|>commentary to=functions.get_weather json<|message|>"
         '{"location":"London"}'
         "<|channel|>final<|message|>The weather in London is 15 degrees Celsius and partly cloudy."
     )
@@ -130,7 +134,7 @@ def test_parse_llm_response_empty_string(chat_session_parser):
 def test_parse_llm_response_tool_call_no_thinking(chat_session_parser):
     """Test parsing a tool call without preceding thinking."""
     llm_response_string = (
-        '<|start|>assistant<|channel|>commentary to=functions.search json<|message|>'
+        "<|start|>assistant<|channel|>commentary to=functions.search json<|message|>"
         '{"query":"latest news"}'
     )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
@@ -148,7 +152,7 @@ def test_parse_llm_response_malformed_tool_json(chat_session_parser):
     """Test parsing a tool call with malformed JSON arguments."""
     llm_response_string = (
         "<|channel|>analysis<|message|>I will try to use a tool."
-        '<|start|>assistant<|channel|>commentary to=functions.bad_tool json<|message|>'
+        "<|start|>assistant<|channel|>commentary to=functions.bad_tool json<|message|>"
         '{"arg1":"value1", "arg2":}'  # Malformed JSON
     )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)

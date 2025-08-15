@@ -5,14 +5,13 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any, Optional
 
-from mcp.messages import CallToolResult
-
 from mcp_simple_chatbot.utils import (
     print_assistant_response,
     print_error_message,
     print_system_message,
     print_tool_execution,
 )
+
 from .command_handler import CommandHandler
 from .server import Server
 
@@ -237,7 +236,9 @@ class ChatSession:
                         logger.info(f"Discovered tool: {tool.name} from {server.name}")
                 except Exception as e:
                     logging.error(f"Failed to initialize server {server.name}: {e}")
-                    print_error_message(f"Failed to initialize server {server.name}: {e}")
+                    print_error_message(
+                        f"Failed to initialize server {server.name}: {e}"
+                    )
                     await self.cleanup_servers()
                     return
 
@@ -270,7 +271,9 @@ class ChatSession:
 
             while True:
                 try:
-                    user_input = input("You: ")  # Using input for now, will switch to get_user_input
+                    user_input = input(
+                        "You: "
+                    )  # Using input for now, will switch to get_user_input
                     logger.info("User input: %s", user_input)
                     if user_input.strip().lower() in ["quit", "exit"]:
                         print_system_message("👋 Goodbye!")

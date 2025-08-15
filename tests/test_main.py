@@ -1,4 +1,3 @@
-import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,7 +11,10 @@ async def test_valid_json_command_execution():
     # Create mock server and tool
     mock_tool = MagicMock()
     mock_tool.name = "test_tool"
-    mock_tool.input_schema = {"type": "object", "properties": {"arg1": {"type": "string"}}}
+    mock_tool.input_schema = {
+        "type": "object",
+        "properties": {"arg1": {"type": "string"}},
+    }
     mock_tool.format_for_llm.return_value = {
         "name": "test_tool",
         "description": "A test tool",
