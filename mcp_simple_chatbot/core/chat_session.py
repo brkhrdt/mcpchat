@@ -180,9 +180,8 @@ class ChatSession:
                     # Append tool output to messages for LLM to process
                     self.messages.append(
                         {
-                            "role": "tool",
+                            "role": "system",
                             "content": json.dumps(result.model_dump()),
-                            "name": tool,
                         }
                     )
 
