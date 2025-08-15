@@ -195,7 +195,8 @@ async def test_simulated_conversation(mock_chat_session):
                     )
                 )
 
-                # Process the turn that handles the tool result and gets final LLM response
+                # Process the turn that handles the tool result and gets final LLM
+                # response
                 should_continue = await chat_session._process_conversation_turn()
                 assert should_continue is True
 
@@ -218,7 +219,8 @@ async def test_simulated_conversation(mock_chat_session):
                 actual_msg = chat_session.messages[j]
                 assert actual_msg["role"] == expected_msg["role"]
                 if expected_msg["role"] == "system":
-                    # For system messages, just check if it contains the expected keywords
+                    # For system messages, just check if it contains the expected
+                    # keywords
                     if j == 0:  # Initial system message
                         assert "You are a helpful assistant" in actual_msg["content"]
                     else:  # Tool result system message
