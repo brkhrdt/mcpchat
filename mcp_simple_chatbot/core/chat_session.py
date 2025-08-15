@@ -144,10 +144,6 @@ class ChatSession:
         """
         logger.info("Processing LLM response...")
 
-        # Always print thinking if present
-        if parsed_response.thinking:
-            print_assistant_response(parsed_response, thinking_only=True)
-
         if parsed_response.tool_call:
             tool = parsed_response.tool_call.tool
             arguments = parsed_response.tool_call.args
@@ -210,18 +206,8 @@ class ChatSession:
                 self.messages.append({"role": "system", "content": error_msg})
                 return error_msg
         else:
-            # If there's a final message, print it
-            if parsed_response.message:
-                print_assistant_response(parsed_response)
-                return parsed_response.message
-            # If no tool call and no final message, but there was commentary
-            # (e.g., malformed response)
-            elif parsed_response.commentary:
-                print_assistant_response(parsed_response)
-                return parsed_response.commentary
-            else:
-                logger.info("No tool call or final message detected in LLM response.")
-                return ""
+            logger.info("No tool call or final message detected in LLM response.")
+            return ""
 
     async def start(self) -> None:
         """Main chat session handler."""
@@ -297,6 +283,8 @@ class ChatSession:
                     llm_response_raw = self.llm_client.get_response(self.messages)
 
                     parsed = self._parse_llm_response(llm_response_raw)
+
+                    print_assistant_response(parsed)
 
                     final_response_content = await self.process_llm_response(parsed)
 
