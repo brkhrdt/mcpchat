@@ -29,7 +29,7 @@ async def mock_chat_session():
     }
     mock_server.list_tools = AsyncMock(return_value=[mock_tool])
     mock_server.execute_tool = AsyncMock(
-        return_value={"temperature": "15°C", "condition": "partly cloudy"}
+        return_value={"temperature": "15C", "condition": "partly cloudy"}
     )
     mock_server.cleanup = AsyncMock()
 
@@ -51,7 +51,7 @@ async def test_simulated_conversation(mock_chat_session):
         # First response: tool call
         '<|channel|>analysis<|message|>User is asking for weather. I need to call the get_weather tool.<|channel|>commentary to=functions.get_weather json<|message|>{"location": "London"}': None,  # Tool calls don't add message content directly
         # Second response: final answer after tool execution
-        "<|channel|>final<|message|>The weather in London is currently 15°C and partly cloudy.": "The weather in London is currently 15°C and partly cloudy.",
+        "<|channel|>final<|message|>The weather in London is currently 15C and partly cloudy.": "The weather in London is currently 15C and partly cloudy.",
         # Third response: joke
         "<|channel|>final<|message|>Why don't scientists trust atoms? Because they make up everything!": "Why don't scientists trust atoms? Because they make up everything!",
     }
@@ -71,11 +71,11 @@ async def test_simulated_conversation(mock_chat_session):
         {"role": "user", "content": "What's the weather like in London?"},
         {
             "role": "system",
-            "content": '{"temperature": "15°C", "condition": "partly cloudy"}',
+            "content": '{"temperature": "15C", "condition": "partly cloudy"}',
         },
         {
             "role": "assistant",
-            "content": "The weather in London is currently 15°C and partly cloudy.",
+            "content": "The weather in London is currently 15C and partly cloudy.",
         },
         {"role": "user", "content": "Tell me a joke."},
         {
@@ -95,7 +95,7 @@ async def test_simulated_conversation(mock_chat_session):
     await chat_session.input_queue.put(
         ToolResult(
             "tool_1",
-            {"temperature": "15°C", "condition": "partly cloudy"},
+            {"temperature": "15C", "condition": "partly cloudy"},
             "get_weather",
         )
     )
