@@ -1,6 +1,8 @@
 import pytest
+from unittest.mock import Mock
 
 from mcp_simple_chatbot.core.chat_session import ChatSession, ToolCall
+from mcp_simple_chatbot.clients.llm_client import LLMClient
 
 
 @pytest.fixture
@@ -8,7 +10,8 @@ def chat_session_parser():
     """Fixture to provide a ChatSession instance for testing parsing methods."""
     # We only need a dummy ChatSession instance to call the _parse_llm_response method.
     # Its dependencies (servers, llm_client) are not relevant for this specific test.
-    return ChatSession(servers=[], llm_client=None)
+    mock_llm_client = Mock(spec=LLMClient)
+    return ChatSession(servers=[], llm_client=mock_llm_client)
 
 
 def test_parse_llm_response_greeting(chat_session_parser):
