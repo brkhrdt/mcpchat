@@ -135,19 +135,19 @@ class ChatSession:
     async def _execute_tool_call(self, tool_call: ToolCall) -> Optional[Any]:
         """
         Execute a single tool call and return the result.
-        
+
         Args:
             tool_call: The tool call to execute
-            
+
         Returns:
             The tool execution result, or None if execution failed
         """
         tool = tool_call.tool
         arguments = tool_call.args
-        
+
         logging.info(f"Executing tool: {tool}")
         logging.info(f"With arguments: {arguments}")
-        
+
         # Find the server that has this tool
         found_tool_server = None
         for server in self.servers.values():
@@ -155,28 +155,28 @@ class ChatSession:
             if tool in [t.name for t in available_tools]:
                 found_tool_server = server
                 break
-        
+
         if not found_tool_server:
             error_msg = f"No server found with tool: {tool}"
             logger.warning(error_msg)
             print_error_message(error_msg)
             self.messages.append({"role": "system", "content": error_msg})
             return None
-        
+
         try:
             result = await found_tool_server.execute_tool(tool, arguments)
-            
+
             # Handle progress reporting if present
             if isinstance(result, dict) and "progress" in result:
                 progress = result["progress"]
                 total = result["total"]
                 percentage = (progress / total) * 100
                 logging.info(f"Progress: {progress}/{total} ({percentage:.1f}%)")
-            
+
             print_tool_execution(tool, result)
             logger.info("Tool execution completed.")
             return result
-            
+
         except Exception as e:
             error_msg = f"Error executing tool: {str(e)}"
             print_error_message(error_msg)
@@ -193,29 +193,31 @@ class ChatSession:
             # Get LLM response
             llm_response_raw = self.llm_client.get_response(self.messages)
             parsed = self._parse_llm_response(llm_response_raw)
-            
+
             # Display the LLM's response (thinking, commentary, etc.)
             print_assistant_response(parsed)
-            
+
             # If there's a tool call, execute it and continue the loop
             if parsed.tool_call:
                 tool_result = await self._execute_tool_call(parsed.tool_call)
                 if tool_result:
                     # Add tool result to messages and continue processing
-                    self.messages.append({
-                        "role": "system", 
-                        "content": json.dumps(tool_result.model_dump())
-                    })
+                    self.messages.append(
+                        {
+                            "role": "system",
+                            "content": json.dumps(tool_result.model_dump()),
+                        }
+                    )
                     continue
                 else:
                     # Tool execution failed, break the loop
                     break
-            
+
             # If there's a final message, add it to history and end the turn
             if parsed.message:
                 self.messages.append({"role": "assistant", "content": parsed.message})
                 break
-            
+
             # If no tool call and no final message, log warning and end turn
             logger.warning("LLM provided no tool call or final message. Ending turn.")
             break
@@ -272,7 +274,7 @@ class ChatSession:
                 try:
                     user_input = input("You: ")
                     logger.info("User input: %s", user_input)
-                    
+
                     if user_input.strip().lower() in ["quit", "exit"]:
                         print_system_message("👋 Goodbye!")
                         logger.info("Chat session ended by user.")
@@ -281,7 +283,9 @@ class ChatSession:
                     # Check if input is a command - handle immediately and continue
                     if self.command_handler.is_command(user_input):
                         logger.info(f"Executing command: {user_input}")
-                        command_response = await self.command_handler.execute_command(user_input)
+                        command_response = await self.command_handler.execute_command(
+                            user_input
+                        )
                         print_system_message(command_response)
                         logger.info(f"Command response: {command_response}")
                         continue
@@ -297,7 +301,9 @@ class ChatSession:
                     logger.info("Chat session interrupted by user (KeyboardInterrupt).")
                     break
                 except Exception as e:
-                    logger.exception("An unexpected error occurred during chat session.")
+                    logger.exception(
+                        "An unexpected error occurred during chat session."
+                    )
                     print_error_message(f"An unexpected error occurred: {e}")
 
         finally:
