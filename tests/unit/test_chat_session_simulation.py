@@ -90,7 +90,9 @@ async def test_simulated_conversation(mock_chat_session):
                 },  # Tool result
                 {
                     "role": "assistant",
-                    "content": "The weather in London is currently 15°C and partly cloudy.",
+                    "content": (
+                        "The weather in London is currently 15°C and partly cloudy."
+                    ),
                 },
             ],
         },
@@ -117,12 +119,17 @@ async def test_simulated_conversation(mock_chat_session):
                 },  # Tool result
                 {
                     "role": "assistant",
-                    "content": "The weather in London is currently 15°C and partly cloudy.",
+                    "content": (
+                        "The weather in London is currently 15°C and partly cloudy."
+                    ),
                 },
                 {"role": "user", "content": "Tell me a joke."},
                 {
                     "role": "assistant",
-                    "content": "Why don't scientists trust atoms? Because they make up everything!",
+                    "content": (
+                        "Why don't scientists trust atoms? Because they make up "
+                        "everything!"
+                    ),
                 },
             ],
         },
