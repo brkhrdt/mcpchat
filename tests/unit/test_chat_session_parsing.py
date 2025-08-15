@@ -38,8 +38,10 @@ def test_parse_llm_response_greeting(chat_session_parser):
 def test_parse_llm_response_tool_call(chat_session_parser):
     """Test parsing an LLM response that includes a tool call."""
     llm_response_string = (
-        "<|channel|>analysis<|message|>Need to list directory /projects. Use list_directory tool."
-        "<|start|>assistant<|channel|>commentary to=functions.list_directory json<|message|>"
+        "<|channel|>analysis<|message|>Need to list directory /projects. "
+        "Use list_directory tool."
+        "<|start|>assistant<|channel|>commentary to=functions.list_directory json"
+        "<|message|>"
         '{"path":"/projects"}'
     )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
@@ -82,13 +84,18 @@ def test_parse_llm_response_only_thinking(chat_session_parser):
 
 
 def test_parse_llm_response_full_cycle_with_tool_and_final_message(chat_session_parser):
-    """Test a more complex scenario with thinking, tool call, and a subsequent final message."""
+    """
+    Test a more complex scenario with thinking, tool call, and a subsequent final
+    message.
+    """
     llm_response_string = (
         "<|channel|>analysis<|message|>User wants to know the weather. "
         "I will use the get_weather tool."
-        "<|start|>assistant<|channel|>commentary to=functions.get_weather json<|message|>"
+        "<|start|>assistant<|channel|>commentary to=functions.get_weather json"
+        "<|message|>"
         '{"location":"London"}'
-        "<|channel|>final<|message|>The weather in London is 15 degrees Celsius and partly cloudy."
+        "<|channel|>final<|message|>The weather in London is 15 degrees Celsius and "
+        "partly cloudy."
     )
     parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
 
@@ -106,7 +113,10 @@ def test_parse_llm_response_full_cycle_with_tool_and_final_message(chat_session_
 
 
 def test_parse_llm_response_only_commentary_fallback(chat_session_parser):
-    """Test parsing a response that doesn't fit other patterns, falling back to commentary."""
+    """
+    Test parsing a response that doesn't fit other patterns, falling back to
+    commentary.
+    """
     llm_response_string = (
         "This is just some raw commentary from the LLM without specific channels."
     )

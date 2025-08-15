@@ -31,12 +31,13 @@ async def test_valid_json_command_execution():
     # Create mock LLM client
     mock_llm_client = MagicMock(spec=LLMClient)
     # The LLMClient's get_response method should return a string that
-    # ChatSession._parse_llm_response can handle
-    # For this test, we are directly testing process_llm_response, so the LLMClient mock's
-    # return value isn't directly used here.
-    # However, if we were testing the full chat session flow, get_response would return a string.
-    # For the purpose of this test, we'll assume the parsing has already happened and we have an
-    # LLMResponse object.
+    # ChatSession._parse_llm_response can handle.
+    # For this test, we are directly testing process_llm_response, so the LLMClient
+    # mock's return value isn't directly used here.
+    # However, if we were testing the full chat session flow, get_response would
+    # return a string.
+    # For the purpose of this test, we'll assume the parsing has already happened
+    # and we have an LLMResponse object.
 
     # Create ChatSession instance
     chat_session = ChatSession(servers=[mock_server], llm_client=mock_llm_client)
@@ -65,7 +66,8 @@ async def test_valid_json_command_execution():
 
 @pytest.mark.asyncio
 async def test_invalid_json_response_printed():
-    # Create mock server (not directly used in this test, but needed for ChatSession init)
+    # Create mock server (not directly used in this test, but needed for ChatSession
+    # init)
     mock_server = MagicMock(spec=Server)
     mock_server.name = "test_server"
     mock_server.list_tools.return_value = []  # No tools for this test
@@ -79,8 +81,8 @@ async def test_invalid_json_response_printed():
 
     # Create mock LLM client
     mock_llm_client = MagicMock(spec=LLMClient)
-    # Again, LLMClient's get_response would return a string, which would then be parsed into an
-    # LLMResponse object.
+    # Again, LLMClient's get_response would return a string, which would then be
+    # parsed into an LLMResponse object.
     # For this test, we directly provide the parsed LLMResponse object.
 
     # Create ChatSession instance

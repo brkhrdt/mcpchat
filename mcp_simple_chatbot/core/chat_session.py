@@ -81,7 +81,8 @@ class ChatSession:
     def _parse_llm_response(self, llm_response: str) -> LLMResponse:
         """
         Parses the LLM's raw string response into a structured LLMResponse object.
-        This method handles different message channels and extracts relevant information.
+        This method handles different message channels and extracts relevant
+        information.
         """
         logger.debug(f"Parsing LLM response:\n{llm_response}")
         # Default role to assistant and commentary to the full raw response
@@ -98,7 +99,8 @@ class ChatSession:
 
         # Regex to capture tool call
         tool_call_match = re.search(
-            r"<\|channel\|>commentary to=functions\.(.*?) ?json<\|message\|>(.*?)(?=<\||$)",
+            r"<\|channel\|>commentary to=functions\.(.*?) ?json<\|message\|>"
+            r"(.*?)(?=<\||$)",
             llm_response,
             re.DOTALL,
         )
@@ -213,7 +215,8 @@ class ChatSession:
             if parsed_response.message:
                 print_assistant_response(parsed_response)
                 return parsed_response.message
-            # If no tool call and no final message, but there was commentary (e.g., malformed response)
+            # If no tool call and no final message, but there was commentary
+            # (e.g., malformed response)
             elif parsed_response.commentary:
                 print_assistant_response(parsed_response)
                 return parsed_response.commentary
@@ -298,8 +301,9 @@ class ChatSession:
 
                     final_response_content = await self.process_llm_response(parsed)
 
-                    # Append the assistant's final message to history if it's not a tool call
-                    # Tool calls and their results are handled within process_llm_response
+                    # Append the assistant's final message to history if it's not a
+                    # tool call. Tool calls and their results are handled within
+                    # process_llm_response.
                     if not parsed.tool_call and final_response_content:
                         self.messages.append(
                             {"role": "assistant", "content": final_response_content}
