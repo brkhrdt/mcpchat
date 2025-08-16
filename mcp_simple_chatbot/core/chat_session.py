@@ -198,7 +198,7 @@ class ChatSession:
             if task_id in self.running_tools:
                 del self.running_tools[task_id]
 
-    async def _execute_tool_call(self, tool_call: ToolCall) -> Optional[Any]:
+    async def _execute_tool_call(self, tool_call: ToolCall) -> Optional[str]:
         """
         Execute a single tool call and return the result.
 
@@ -280,7 +280,7 @@ class ChatSession:
         # Get next input (user or tool result)
         input_item: InputType = await self.input_queue.get()
 
-        if input_item.type == "user":
+        if isinstance(input_item, UserInput):
             logger.info("Processing user input: %s", input_item.content)
 
             # Check for exit commands
@@ -300,7 +300,7 @@ class ChatSession:
             # Add to conversation history
             self.messages.append({"role": "user", "content": input_item.content})
 
-        elif input_item.type == "tool_result":
+        elif isinstance(input_item, ToolResult):
             logger.info("Processing tool result: %s", input_item.tool_id)
             # Add tool result to conversation
             if hasattr(input_item.result, "model_dump"):
