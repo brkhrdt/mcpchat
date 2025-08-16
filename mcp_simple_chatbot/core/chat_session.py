@@ -289,6 +289,11 @@ class ChatSession:
                 logger.info("Chat session ended by user.")
                 return False
 
+            if input_item.content.strip().lower() in ["/history"]:
+                import pprint
+                pprint.pprint(self.messages)
+                return True
+
             # Handle commands
             if self.command_handler.is_command(input_item.content):
                 command_response = await self.command_handler.execute_command(
