@@ -7,6 +7,8 @@ import re
 from asyncio import Queue
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
+from mcp.types import TextContent
+
 from mcp_simple_chatbot.utils import (
     print_assistant_response,
     print_error_message,
@@ -39,11 +41,11 @@ class ToolCall:
 class LLMResponse:
     def __init__(
         self,
-        role: Optional[str] = None,  # Changed to Optional[str]
-        thinking: Optional[str] = None,  # Changed to Optional[str]
-        message: Optional[str] = None,  # Changed to Optional[str]
-        tool_call: Optional[ToolCall] = None,  # Changed to Optional[ToolCall]
-        commentary: Optional[str] = None,  # Changed to Optional[str]
+        role: Optional[str] = None,
+        thinking: Optional[str] = None,
+        message: Optional[str] = None,
+        tool_call: Optional[ToolCall] = None,
+        commentary: Optional[str] = None,
     ):
         self.role = role
         self.thinking = thinking
@@ -98,7 +100,7 @@ class ChatSession:
         self.running_tools: Dict[str, asyncio.Task] = {}
         self.tool_counter = 0
         self.user_input_task: Optional[asyncio.Task] = None
-        self._monitor_user_input_enabled = True  # New flag for testability
+        self._monitor_user_input_enabled = True
 
     async def cleanup_servers(self) -> None:
         """Clean up all servers properly."""
@@ -229,16 +231,14 @@ class ChatSession:
         try:
             result = await found_tool_server.execute_tool(tool, arguments)
 
-            # Handle progress reporting if present
-            if isinstance(result, dict) and "progress" in result:
-                progress = result["progress"]
-                total = result["total"]
-                percentage = (progress / total) * 100
-                logging.info(f"Progress: {progress}/{total} ({percentage:.1f}%)")
-
-            print_tool_execution(tool, result)
-            logger.info("Tool execution completed.")
-            return result.content[0].text
+            if isinstance(result.content[0], TextContent):
+                print_tool_execution(tool, result)
+                logger.info("Tool execution completed.")
+                return result.content[0].text
+            else:
+                raise ValueError(
+                    f"Unsupported tool result type: {type(result.content[0])}"
+                )
 
         except Exception as e:
             error_msg = f"Error executing tool: {str(e)}"
@@ -393,7 +393,7 @@ class ChatSession:
 
         finally:
             # Cleanup
-            if input_monitor:  # Check if it was ever created
+            if input_monitor:
                 input_monitor.cancel()
                 try:
                     await input_monitor
