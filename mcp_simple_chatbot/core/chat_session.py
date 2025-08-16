@@ -238,7 +238,7 @@ class ChatSession:
 
             print_tool_execution(tool, result)
             logger.info("Tool execution completed.")
-            return result
+            return result.content[0].text
 
         except Exception as e:
             error_msg = f"Error executing tool: {str(e)}"

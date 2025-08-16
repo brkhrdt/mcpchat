@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from mcp.types import CallToolResult, TextContent
 
 from mcp_simple_chatbot.core.chat_session import (
     ChatSession,
@@ -29,7 +30,14 @@ async def mock_chat_session():
     }
     mock_server.list_tools = AsyncMock(return_value=[mock_tool])
     mock_server.execute_tool = AsyncMock(
-        return_value={"temperature": "15C", "condition": "partly cloudy"}
+        return_value=CallToolResult(
+            content=[
+                TextContent(
+                    type="text",
+                    text='{"temperature": "15C", "condition": "partly cloudy"}',
+                )
+            ]
+        )
     )
     mock_server.cleanup = AsyncMock()
 
@@ -51,11 +59,15 @@ async def test_simulated_conversation(mock_chat_session):
     # Configure LLM responses in order
     mock_llm_client.get_response.side_effect = [
         # First response: tool call for weather (triggered by user's weather question)
-        '<|channel|>analysis<|message|>User is asking for weather. I need to call the get_weather tool.<|channel|>commentary to=functions.get_weather json<|message|>{"location": "London"}',
+        "<|channel|>analysis<|message|>User is asking for weather. I need to call the "
+        "get_weather tool.<|channel|>commentary to=functions.get_weather json"
+        '<|message|>{"location": "London"}',
         # Second response: final answer after tool execution (triggered by tool result)
-        "<|channel|>final<|message|>The weather in London is currently 15C and partly cloudy.",
+        "<|channel|>final<|message|>The weather in London is currently 15C and"
+        " partly cloudy.",
         # Third response: joke (triggered by user's joke question)
-        "<|channel|>final<|message|>Why don't scientists trust atoms? Because they make up everything!",
+        "<|channel|>final<|message|>Why don't scientists trust atoms? Because they"
+        " make up everything!",
     ]
 
     # Start the chat session's main loop in a background task
@@ -65,11 +77,8 @@ async def test_simulated_conversation(mock_chat_session):
     # --- Simulate the conversation turn by turn, waiting for conditions ---
 
     # Wait for initial system message to be added after initialization
-    # The chat_session.start() calls start_initialization, which adds the first system message.
-    # We need to wait for this to happen before we can put user input.
-    # We can check the length of chat_session.messages.
     await asyncio.wait_for(
-        _wait_for_condition(lambda: len(chat_session.messages) >= 1),
+        _wait_for_condition(lambda: len(chat_session.messages) == 1),
         timeout=1,  # Add a timeout to prevent infinite waits in case of logic errors
     )
     assert chat_session.messages[0]["role"] == "system"
@@ -78,11 +87,9 @@ async def test_simulated_conversation(mock_chat_session):
     # 1. User asks about weather
     await chat_session.input_queue.put(UserInput("What's the weather like in London?"))
 
-    # Wait for the first LLM call (tool call) and the tool execution to start,
-    # and for the tool result to be processed, leading to the second LLM call.
-    # We expect mock_llm_client.get_response to be called twice by this point.
+    # Wait for the first LLM call (tool call) and the tool execution to start
     await asyncio.wait_for(
-        _wait_for_condition(lambda: mock_llm_client.get_response.call_count >= 2),
+        _wait_for_condition(lambda: mock_llm_client.get_response.call_count == 2),
         timeout=1,
     )
 
@@ -90,14 +97,12 @@ async def test_simulated_conversation(mock_chat_session):
     mock_server.execute_tool.assert_called_once_with(
         "get_weather", {"location": "London"}
     )
-    mock_server.execute_tool.reset_mock()  # Reset mock for potential future tool calls if any
 
     # 2. User asks for joke
     await chat_session.input_queue.put(UserInput("Tell me a joke."))
 
-    # Wait for the third LLM call (the joke)
     await asyncio.wait_for(
-        _wait_for_condition(lambda: mock_llm_client.get_response.call_count >= 3),
+        _wait_for_condition(lambda: mock_llm_client.get_response.call_count == 3),
         timeout=1,
     )
 
@@ -114,7 +119,8 @@ async def test_simulated_conversation(mock_chat_session):
         {"role": "user", "content": "What's the weather like in London?"},
         {
             "role": "system",
-            "content": '{"temperature": "15C", "condition": "partly cloudy"}',
+            "content": '"{\\"temperature\\": \\"15C\\",'
+            ' \\"condition\\": \\"partly cloudy\\"}"',
         },
         {
             "role": "assistant",
@@ -123,15 +129,12 @@ async def test_simulated_conversation(mock_chat_session):
         {"role": "user", "content": "Tell me a joke."},
         {
             "role": "assistant",
-            "content": "Why don't scientists trust atoms? Because they make up everything!",
+            "content": "Why don't scientists trust atoms? "
+            "Because they make up everything!",
         },
     ]
 
     # Verify final message history
-    # from pprint import pprint # Keep for debugging if needed
-    # pprint(chat_session.messages)
-    # print('\n\n')
-    # pprint(expected_messages)
     assert len(chat_session.messages) == len(expected_messages)
 
     for i, expected_msg in enumerate(expected_messages):
@@ -147,7 +150,7 @@ async def test_simulated_conversation(mock_chat_session):
     # Verify LLM was called 3 times
     assert mock_llm_client.get_response.call_count == 3
 
-    # Verify tool was executed once (already asserted above, but good to have final check)
+    # Verify tool was executed once
     mock_server.execute_tool.assert_called_once_with(
         "get_weather", {"location": "London"}
     )
