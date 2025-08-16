@@ -322,6 +322,7 @@ class ChatSession:
         # Handle LLM response
         if parsed.tool_call:
             # Start tool execution (non-blocking)
+            self.messages.append({"role": "assistant", "content": f"Calling tool `{parsed.tool_call.tool}` with arguments: `{parsed.tool_call.args}`"})
             await self._start_tool_execution(parsed.tool_call)
 
         if parsed.message:
