@@ -57,6 +57,27 @@ def test_parse_llm_response_tool_call(chat_session_parser):
     assert parsed_response.commentary == llm_response_string
 
 
+def test_parse_llm_response_tool_call_missing_function(chat_session_parser):
+    """
+    Test parsing an LLM response that includes a malformed tool call.
+    (missing functions.<function>)
+    """
+    llm_response_string = (
+        "<|channel|>analysis<|message|>Thinking about things."
+        "<|start|>assistant<|channel|>commentary to=read_file json"
+        '<|message|>{"path":"/projects/junk.txt"}'
+    )
+    parsed_response = chat_session_parser._parse_llm_response(llm_response_string)
+
+    assert parsed_response.role == "assistant"
+    assert parsed_response.thinking == ("Thinking about things.")
+    assert parsed_response.message is None
+    assert isinstance(parsed_response.tool_call, ToolCall)
+    assert parsed_response.tool_call.tool == "read_file"
+    assert parsed_response.tool_call.args == {"path": "/projects/junk.txt"}
+    assert parsed_response.commentary == llm_response_string
+
+
 def test_parse_llm_response_only_message(chat_session_parser):
     """Test parsing an LLM response that only contains a final message."""
     llm_response_string = "<|channel|>final<|message|>Here is your answer."
